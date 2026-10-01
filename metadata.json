@@ -1,0 +1,6 @@
+{
+  "name": "Bissho Barta",
+  "description": "A fast, lightweight, and responsive social media platform with news feed, stories, Bissho Barta chat, friend requests, notifications, and profile management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

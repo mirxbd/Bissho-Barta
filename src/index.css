@@ -1,0 +1,278 @@
+@import "tailwindcss";
+
+:root {
+  --brand-primary: #076653;
+  --brand-accent: #E3EF26;
+  --brand-dark: #0C342C;
+  --brand-deep: #06231D;
+  --brand-light: #EBF7F2;
+  --brand-surface: #F2FAF6;
+}
+
+/* Hide browser scrollbars globally for a clean, app-like native feel */
+*,
+*::before,
+*::after,
+html,
+body,
+#root {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;     /* Firefox */
+}
+
+*::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;             /* Chrome, Safari, Opera, Android */
+  width: 0px !important;
+  height: 0px !important;
+  background: transparent !important;
+}
+
+@layer base {
+  html, body {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Custom brand gradients and utilities */
+  .bg-brand-primary {
+    background-color: #076653;
+  }
+  .bg-brand-accent {
+    background-color: #E3EF26;
+  }
+  .bg-brand-dark {
+    background-color: #0C342C;
+  }
+  .bg-brand-light {
+    background-color: #EBF7F2;
+  }
+  .text-brand-primary {
+    color: #076653;
+  }
+  .text-brand-accent {
+    color: #E3EF26;
+  }
+  .text-brand-dark {
+    color: #0C342C;
+  }
+  .border-brand-primary {
+    border-color: #076653;
+  }
+  .border-brand-accent {
+    border-color: #E3EF26;
+  }
+  .gradient-brand-3 {
+    background: linear-gradient(135deg, #E3EF26 0%, #076653 60%, #0C342C 100%);
+  }
+  .gradient-brand-4 {
+    background: linear-gradient(180deg, #076653 0%, #0C342C 70%, #06231D 100%);
+  }
+
+  /* ========================================================================= */
+  /* HIGH-VISIBILITY NIGHT MODE (DARK MODE) SYSTEM                             */
+  /* Rich Obsidian Emerald with Crisp High Contrast, Vivid Borders & Accents   */
+  /* ========================================================================= */
+
+  html.dark {
+    color-scheme: dark;
+    background-color: #081411;
+    color: #f1f5f9;
+  }
+
+  html.dark body {
+    background-color: #081411;
+    color: #f1f5f9;
+  }
+
+  html.dark #app-viewport-wrapper {
+    background-color: #081411;
+    color: #f1f5f9;
+  }
+
+  /* Main Cards & Containers */
+  html.dark .bg-white {
+    background-color: #102420 !important;
+    color: #f8fafc !important;
+    border-color: #1f473e !important;
+  }
+
+  /* Top Navigation & Sub-headers */
+  html.dark #app-global-header-wrapper,
+  html.dark #top-utility-bar,
+  html.dark #app-global-header {
+    background-color: #0c1b18 !important;
+    border-color: #1b3d35 !important;
+    color: #f8fafc !important;
+  }
+
+  /* Page Backgrounds */
+  html.dark .bg-\[\#F0F2F5\],
+  html.dark .bg-\[\#f0f2f5\] {
+    background-color: #081411 !important;
+  }
+
+  /* Light Accent / Tinted Backgrounds in Dark Mode */
+  html.dark .bg-\[\#EBF7F2\],
+  html.dark .bg-\[\#F2FAF6\],
+  html.dark .bg-\[\#ebf7f2\],
+  html.dark .bg-\[\#f2faf6\] {
+    background-color: #16362e !important;
+    color: #e2e8f0 !important;
+  }
+
+  /* Sub-card & Section Backgrounds */
+  html.dark .bg-gray-50,
+  html.dark .bg-gray-50\/50,
+  html.dark .bg-gray-50\/60,
+  html.dark .bg-gray-50\/70,
+  html.dark .bg-gray-50\/80,
+  html.dark .bg-slate-50,
+  html.dark .bg-slate-100,
+  html.dark .bg-slate-100\/80,
+  html.dark .bg-slate-100\/90 {
+    background-color: #132b25 !important;
+    color: #f1f5f9 !important;
+    border-color: #214a40 !important;
+  }
+
+  html.dark .bg-gray-100,
+  html.dark .bg-gray-200 {
+    background-color: #1b3d35 !important;
+    color: #f8fafc !important;
+    border-color: #26554b !important;
+  }
+
+  /* Text Readability & Contrast */
+  html.dark .text-gray-900,
+  html.dark .text-gray-800,
+  html.dark .text-slate-900,
+  html.dark .text-slate-800 {
+    color: #ffffff !important;
+  }
+
+  html.dark .text-gray-700,
+  html.dark .text-gray-600,
+  html.dark .text-slate-700,
+  html.dark .text-slate-600 {
+    color: #cbd5e1 !important;
+  }
+
+  html.dark .text-gray-500,
+  html.dark .text-gray-400,
+  html.dark .text-slate-500,
+  html.dark .text-slate-400 {
+    color: #94a3b8 !important;
+  }
+
+  /* Borders & Separators */
+  html.dark .border-gray-100,
+  html.dark .border-gray-200,
+  html.dark .border-gray-200\/60,
+  html.dark .border-gray-200\/70,
+  html.dark .border-gray-200\/80,
+  html.dark .border-gray-300,
+  html.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]),
+  html.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) {
+    border-color: #1e453c !important;
+  }
+
+  /* Form Inputs & Textareas */
+  html.dark input[type="text"],
+  html.dark input[type="search"],
+  html.dark input[type="email"],
+  html.dark input[type="password"],
+  html.dark input[type="number"],
+  html.dark textarea,
+  html.dark select {
+    background-color: #132b25 !important;
+    color: #ffffff !important;
+    border-color: #26594d !important;
+  }
+
+  html.dark input::placeholder,
+  html.dark textarea::placeholder {
+    color: #8da49e !important;
+  }
+
+  html.dark input:focus,
+  html.dark textarea:focus {
+    border-color: #34d399 !important;
+    background-color: #17362f !important;
+    outline: none !important;
+  }
+
+  /* Vivid Emerald Text & Accents in Dark Mode */
+  html.dark .text-\[\#076653\] {
+    color: #34d399 !important;
+  }
+
+  html.dark .bg-\[\#076653\] {
+    background-color: #0d705c !important;
+    color: #e3ef26 !important;
+  }
+
+  html.dark .border-\[\#076653\]\/20,
+  html.dark .border-\[\#076653\]\/30,
+  html.dark .border-\[\#076653\]\/40 {
+    border-color: rgba(52, 211, 153, 0.35) !important;
+  }
+
+  /* Drawers, Modals and Popovers in Dark Mode */
+  html.dark #tools-menu-drawer,
+  html.dark #header-content-preference-popover,
+  html.dark .modal-content-container {
+    background-color: #0e201c !important;
+    border-color: #214d43 !important;
+    color: #f8fafc !important;
+  }
+
+  /* Search segmented bar in Dark Mode */
+  html.dark #topbar-search-toggle-bar,
+  html.dark #search-mode-segmented-toggle {
+    background-color: #132b25 !important;
+    border-color: #224d43 !important;
+  }
+
+  /* Hover States in Dark Mode */
+  html.dark .hover\:bg-gray-50:hover,
+  html.dark .hover\:bg-gray-100:hover,
+  html.dark .hover\:bg-gray-200:hover {
+    background-color: #1a3b33 !important;
+  }
+
+  /* Action Buttons & Badges */
+  html.dark .bg-emerald-50,
+  html.dark .bg-emerald-100 {
+    background-color: #133a2f !important;
+    color: #a7f3d0 !important;
+    border-color: #1f5746 !important;
+  }
+
+  html.dark .bg-purple-50,
+  html.dark .bg-purple-100 {
+    background-color: #271b3d !important;
+    color: #e9d5ff !important;
+    border-color: #3b265c !important;
+  }
+
+  html.dark .bg-amber-50,
+  html.dark .bg-amber-100 {
+    background-color: #382d13 !important;
+    color: #fde68a !important;
+    border-color: #574419 !important;
+  }
+
+  html.dark .bg-red-50,
+  html.dark .bg-red-100 {
+    background-color: #381619 !important;
+    color: #fecaca !important;
+    border-color: #5c2025 !important;
+  }
+
+  /* Comments bubble in Dark Mode */
+  html.dark .comment-bubble {
+    background-color: #15312b !important;
+    border-color: #235247 !important;
+  }
+}
