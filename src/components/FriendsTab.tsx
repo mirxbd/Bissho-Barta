@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Friend } from '../types';
 import { UserCheck, UserPlus, UserX, MessageSquare, Search } from 'lucide-react';
+import { ConfirmModal } from './ConfirmModal';
 
 interface FriendsTabProps {
   friends: Friend[];
@@ -8,6 +9,7 @@ interface FriendsTabProps {
   handleFriendAction: (friendId: string, action: 'accept' | 'decline' | 'add' | 'remove') => void;
   setActiveTab: (tab: number) => void;
   setChattingFriendId: (id: string | null) => void;
+  onStartMessage?: (userName: string, userAvatar?: string, friendId?: string) => void;
   onViewProfile?: (name: string, avatar?: string, id?: string) => void;
 }
 
@@ -17,8 +19,11 @@ export default function FriendsTab({
   handleFriendAction,
   setActiveTab,
   setChattingFriendId,
+  onStartMessage,
   onViewProfile
 }: FriendsTabProps) {
+  const [friendToRemove, setFriendToRemove] = useState<Friend | null>(null);
+
   // Separate and filter friends using memoization
   const { filteredPending, filteredSent, filteredSuggestions, filteredActive, pendingIncomingCount, sentOutgoingCount, activeFriendsCount } = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
@@ -41,8 +46,12 @@ export default function FriendsTab({
   }, [friends, searchQuery]);
 
   const startChatting = (friend: Friend) => {
-    setChattingFriendId(friend.id);
-    setActiveTab(2); // Jump to Messages tab
+    if (onStartMessage) {
+      onStartMessage(friend.name, friend.avatar, friend.id);
+    } else {
+      setChattingFriendId(friend.id);
+      setActiveTab(2);
+    }
   };
 
   return (
@@ -247,12 +256,8 @@ export default function FriendsTab({
                     <MessageSquare className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`Are you sure you want to unfriend ${friend.name}?`)) {
-                        handleFriendAction(friend.id, 'remove');
-                      }
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded border border-gray-200"
+                    onClick={() => setFriendToRemove(friend)}
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-gray-100 rounded border border-gray-200 cursor-pointer"
                     title="Remove Friend"
                     id={`remove-friend-btn-${friend.id}`}
                   >
@@ -264,6 +269,20 @@ export default function FriendsTab({
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(friendToRemove)}
+        title="Unfriend User"
+        message={friendToRemove ? `Are you sure you want to unfriend ${friendToRemove.name}?` : ''}
+        confirmLabel="Unfriend"
+        onConfirm={() => {
+          if (friendToRemove) {
+            handleFriendAction(friendToRemove.id, 'remove');
+            setFriendToRemove(null);
+          }
+        }}
+        onCancel={() => setFriendToRemove(null)}
+      />
     </div>
   );
 }

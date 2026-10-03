@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Notification } from '../types';
-import { Heart, MessageCircle, UserPlus, Check, Trash2, BellOff, ArrowRight, Pin, Users } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Heart, MessageCircle, UserPlus, Check, Trash2, BellOff, ArrowRight, Pin } from 'lucide-react';
 
 interface NotificationsTabProps {
   notifications: Notification[];
@@ -207,16 +206,13 @@ export default function NotificationsTab({
 
   return (
     <div className="bg-[#F0F2F5] lg:bg-transparent min-h-[calc(100vh-112px)] lg:min-h-0 pb-4 lg:pb-4 select-none font-sans" id="notifications-tab-container">
-      {/* Tab Header Toolbar */}
-      <div className="bg-white p-3 border-b border-gray-200 sticky top-0 z-20 flex justify-between items-center shadow-xs">
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">Notifications</span>
-          {unreadCount > 0 && (
-            <span className="bg-[#076653] text-[#E3EF26] font-bold text-[9px] px-1.5 py-0.5 rounded-full">{unreadCount} new</span>
-          )}
-        </div>
+      {/* Toolbar only shown when unread notifications exist (no "Notifications" title text) */}
+      {unreadCount > 0 && (
+        <div className="bg-white px-3 py-2 border-b border-gray-200 sticky top-0 z-20 flex justify-between items-center shadow-xs">
+          <span className="bg-[#076653] text-[#E3EF26] font-bold text-[9px] px-1.5 py-0.5 rounded-full">
+            {unreadCount} new
+          </span>
 
-        {unreadCount > 0 && (
           <button
             onClick={markAllNotificationsAsRead}
             className="text-[10px] font-bold text-[#076653] hover:underline flex items-center gap-1 cursor-pointer"
@@ -225,38 +221,10 @@ export default function NotificationsTab({
             <Check className="w-3.5 h-3.5" />
             <span>Mark all as read</span>
           </button>
-        )}
-      </div>
-
-      {/* Shortcut row for Friends & Requests */}
-      <div className="flex flex-col mt-2 bg-white border-y border-gray-200" id="notification-shortcuts-container">
-        {/* Friends Row */}
-        <div 
-          onClick={() => setActiveTab(1)}
-          className="flex items-center justify-between p-3.5 hover:bg-gray-50 active:bg-gray-100 cursor-pointer transition-colors"
-          id="notif-shortcut-friends-row"
-        >
-          <div className="flex items-center gap-3.5 min-w-0">
-            <div className="w-10 h-10 rounded-full bg-[#EBF7F2] text-[#076653] flex items-center justify-center shrink-0 border border-[#076653]/20">
-              <Users className="w-5 h-5" />
-            </div>
-            <div className="text-left min-w-0">
-              <h3 className="text-xs font-bold text-gray-900 leading-tight">Friends & Requests</h3>
-              <p className="text-[10px] text-gray-500 truncate mt-0.5">Manage friends list, sent, and pending requests</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {pendingRequestsCount > 0 && (
-              <span className="bg-red-500 text-white text-[10px] font-bold h-5 px-1.5 min-w-[20px] flex items-center justify-center rounded-full">
-                {pendingRequestsCount}
-              </span>
-            )}
-            <ArrowRight className="w-4 h-4 text-gray-400" />
-          </div>
         </div>
-      </div>
+      )}
 
-      <div className="flex flex-col mt-2 bg-white border-y border-gray-200">
+      <div className="flex flex-col bg-white border-b border-gray-200">
         {notifications.length === 0 ? (
           <div className="py-20 text-center text-gray-400 text-xs flex flex-col items-center gap-2">
             <BellOff className="w-8 h-8 text-gray-300" />

@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   X, ArrowLeft, MapPin, Briefcase, GraduationCap, Heart, UserPlus, 
-  UserCheck, MessageSquare, Share2, Phone, Video, CheckCircle2, 
-  Globe, Calendar, Users, Eye, Sparkles, Image as ImageIcon,
-  Newspaper, Shield, ThumbsUp, MessageCircle
+  UserCheck, MessageSquare, Share2, CheckCircle2, 
+  ExternalLink, Users, Eye, Sparkles, Image as ImageIcon,
+  Newspaper, ThumbsUp
 } from 'lucide-react';
 import { PublicUserProfile, Post, Friend, UserProfile } from '../types';
+import { ConfirmModal } from './ConfirmModal';
 
 interface PublicProfileModalProps {
   userProfile: PublicUserProfile | null;
@@ -39,14 +40,28 @@ export default function PublicProfileModal({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
   const [commentInputs, setCommentInputs] = useState<{ [postId: string]: string }>({});
+  const [poppingLikeIds, setPoppingLikeIds] = useState<Record<string, boolean>>({});
+  const [confirmUnfriendOpen, setConfirmUnfriendOpen] = useState(false);
+
+  const handleLikeClick = (postId: string) => {
+    setPoppingLikeIds((prev) => ({ ...prev, [postId]: true }));
+    likePost?.(postId);
+    setTimeout(() => {
+      setPoppingLikeIds((prev) => ({ ...prev, [postId]: false }));
+    }, 450);
+  };
 
   if (!userProfile) return null;
 
-  const isSelf = userProfile.name === currentUserProfile.name || userProfile.avatar === currentUserProfile.avatar;
+  const myUserId = currentUserProfile.id || 'user_me';
+  const isSelf =
+    (userProfile.id && userProfile.id === myUserId) ||
+    userProfile.name === currentUserProfile.name ||
+    userProfile.avatar === currentUserProfile.avatar;
 
-  // Real-time friend status check from friends list
+  // Real-time friend status check from friends list (match by ID first, then name)
   const currentFriendRecord = friends.find(
-    f => f.name.toLowerCase() === userProfile.name.toLowerCase() || (userProfile.id && f.id === userProfile.id)
+    f => (userProfile.id && f.id === userProfile.id) || f.name.toLowerCase() === userProfile.name.toLowerCase()
   );
   const effectiveStatus = currentFriendRecord ? currentFriendRecord.status : (userProfile.status || 'none');
   const friendId = currentFriendRecord?.id || userProfile.id || `friend-${userProfile.name.toLowerCase().replace(/\s+/g, '-')}`;
@@ -56,20 +71,31 @@ export default function PublicProfileModal({
     setTimeout(() => setToastMessage(null), 3000);
   };
 
-  const handleCopyLink = () => {
-    navigator.clipboard?.writeText?.(window.location.href);
-    showToast(`Profile link copied for ${userProfile.name}!`);
+  const handleCopyLink = async () => {
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(window.location.href);
+      showToast(`Profile link copied for ${userProfile.name}!`);
+    } catch {
+      showToast('Failed to copy profile link');
+    }
   };
 
-  // User posts
-  const userPosts = posts.filter(
-    p => p.authorName.toLowerCase() === userProfile.name.toLowerCase()
-  );
+  // User posts: match by authorId or authorName, hide unpublished scheduled posts, and hide Private posts if not self
+  const userPosts = posts.filter((p) => {
+    const belongsToUser =
+      (userProfile.id && p.authorId === userProfile.id) ||
+      p.authorName.toLowerCase() === userProfile.name.toLowerCase();
+    if (!belongsToUser) return false;
+    if (p.isScheduled) return false;
+    if (!isSelf && p.postType === 'Private') return false;
+    return true;
+  });
 
   return (
     <AnimatePresence>
       <div 
-        className="fixed inset-0 z-60 flex items-center justify-center bg-black/75 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto"
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/75 backdrop-blur-xs p-0 sm:p-4 overflow-y-auto"
         id="public-profile-modal-backdrop"
       >
         {/* TOAST ALERT */}
@@ -227,12 +253,7 @@ export default function PublicProfileModal({
                       {/* Add / Confirm / Friend Status Button */}
                       {effectiveStatus === 'friend' && (
                         <button
-                          onClick={() => {
-                            if (window.confirm(`Are you sure you want to remove ${userProfile.name} as a friend?`)) {
-                              handleFriendAction(friendId, 'remove');
-                              showToast(`Removed ${userProfile.name} from friends`);
-                            }
-                          }}
+                          onClick={() => setConfirmUnfriendOpen(true)}
                           className="px-3.5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer border border-gray-200"
                           id="public-profile-friend-btn"
                         >
@@ -297,7 +318,6 @@ export default function PublicProfileModal({
                       {/* Direct Message Button */}
                       <button
                         onClick={() => {
-                          onClose();
                           onStartMessage(userProfile.name, userProfile.avatar, friendId);
                         }}
                         className="px-3.5 py-2 bg-[#EBF7F2] hover:bg-[#076653] hover:text-[#E3EF26] text-[#076653] font-bold text-xs rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer border border-[#076653]/30 shadow-2xs"
@@ -305,16 +325,6 @@ export default function PublicProfileModal({
                       >
                         <MessageSquare className="w-4 h-4" />
                         <span>Message</span>
-                      </button>
-
-                      {/* Call simulation */}
-                      <button
-                        onClick={() => showToast(`Calling ${userProfile.name}...`)}
-                        className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-colors cursor-pointer border border-gray-200"
-                        title="Voice Call"
-                        id="public-profile-call-btn"
-                      >
-                        <Phone className="w-4 h-4" />
                       </button>
                     </>
                   )}
@@ -350,9 +360,8 @@ export default function PublicProfileModal({
                 {/* Mutual friends info */}
                 {userProfile.mutualFriends !== undefined && userProfile.mutualFriends > 0 && (
                   <p className="text-xs text-gray-600 mt-1 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-[#076653]" />
                     <span className="font-semibold text-gray-800">{userProfile.mutualFriends} mutual friends</span>
-                    <span className="text-gray-400">including David Chen, Sarah Jenkins</span>
+                    <span className="text-gray-400">including Tanvir Ahmed, Nusrat Jahan</span>
                   </p>
                 )}
 
@@ -390,12 +399,11 @@ export default function PublicProfileModal({
             {/* 3. PROFILE SUB-NAVIGATION TABS */}
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 flex gap-2 z-10 shadow-2xs">
               {[
-                { id: 'posts', label: 'Posts', icon: Newspaper },
-                { id: 'about', label: 'Public Details', icon: Briefcase },
-                { id: 'photos', label: 'Photos', icon: ImageIcon },
-                { id: 'friends', label: 'Friends', icon: Users },
+                { id: 'posts', label: 'Posts' },
+                { id: 'about', label: 'Public Details' },
+                { id: 'photos', label: 'Photos' },
+                { id: 'friends', label: 'Friends' },
               ].map((tab) => {
-                const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 return (
                   <button
@@ -408,7 +416,6 @@ export default function PublicProfileModal({
                     }`}
                     id={`profile-tab-btn-${tab.id}`}
                   >
-                    <Icon className="w-3.5 h-3.5" />
                     <span>{tab.label}</span>
                   </button>
                 );
@@ -422,34 +429,29 @@ export default function PublicProfileModal({
                 <div className="space-y-4" id="public-profile-posts-list">
                   {/* Public Details Card Summary */}
                   <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-2xs space-y-2.5">
-                    <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider flex items-center gap-1.5 border-b border-gray-100 pb-2">
-                      <Sparkles className="w-3.5 h-3.5 text-[#076653]" />
-                      <span>About {userProfile.name}</span>
+                    <h3 className="text-xs font-bold text-gray-800 uppercase tracking-wider border-b border-gray-100 pb-2">
+                      About {userProfile.name}
                     </h3>
                     
                     <div className="space-y-2 text-xs text-gray-700">
                       {userProfile.work && (
-                        <div className="flex items-center gap-2">
-                          <Briefcase className="w-4 h-4 text-[#076653] shrink-0" />
-                          <span>Works at <span className="font-semibold text-gray-900">{userProfile.work}</span></span>
+                        <div>
+                          Works at <span className="font-semibold text-gray-900">{userProfile.work}</span>
                         </div>
                       )}
                       {userProfile.education && (
-                        <div className="flex items-center gap-2">
-                          <GraduationCap className="w-4 h-4 text-[#076653] shrink-0" />
-                          <span>Studied at <span className="font-semibold text-gray-900">{userProfile.education}</span></span>
+                        <div>
+                          Studied at <span className="font-semibold text-gray-900">{userProfile.education}</span>
                         </div>
                       )}
                       {userProfile.location && (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="w-4 h-4 text-[#076653] shrink-0" />
-                          <span>Lives in <span className="font-semibold text-gray-900">{userProfile.location}</span></span>
+                        <div>
+                          Lives in <span className="font-semibold text-gray-900">{userProfile.location}</span>
                         </div>
                       )}
                       {userProfile.relationship && (
-                        <div className="flex items-center gap-2">
-                          <Heart className="w-4 h-4 text-[#076653] shrink-0" />
-                          <span>Relationship: <span className="font-semibold text-gray-900">{userProfile.relationship}</span></span>
+                        <div>
+                          Relationship: <span className="font-semibold text-gray-900">{userProfile.relationship}</span>
                         </div>
                       )}
                     </div>
@@ -499,7 +501,8 @@ export default function PublicProfileModal({
                                   {post.authorName}
                                 </h4>
                                 <span className="text-[10px] text-gray-400">
-                                  {post.timestamp} • 🌐 Public
+                                  {post.timestamp}
+                                  {(post.postType === 'Subscriber' || post.postType === 'Private') ? ` • ${post.postType}` : ''}
                                 </span>
                               </div>
                             </div>
@@ -524,17 +527,29 @@ export default function PublicProfileModal({
 
                           {/* Interaction bar */}
                           <div className="px-3.5 py-2 border-t border-gray-100 bg-gray-50/50 flex justify-between items-center text-xs">
-                            <button
-                              onClick={() => likePost?.(post.id)}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors font-bold cursor-pointer ${
+                            <motion.button
+                              whileTap={{ scale: 0.92 }}
+                              onClick={() => handleLikeClick(post.id)}
+                              className={`relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all duration-200 font-bold cursor-pointer select-none ${
                                 post.likedByMe 
-                                  ? 'text-[#076653] bg-[#EBF7F2]' 
-                                  : 'text-gray-600 hover:bg-gray-200/60'
-                              }`}
+                                  ? 'text-[#076653] bg-[#EBF7F2] ring-1 ring-[#076653]/30 shadow-2xs' 
+                                  : 'text-gray-600 hover:bg-[#EBF7F2]/60 hover:text-[#076653]'
+                              } ${poppingLikeIds[post.id] ? 'animate-like-btn-pop bg-[#d4f4e7]' : ''}`}
                             >
-                              <ThumbsUp className={`w-4 h-4 ${post.likedByMe ? 'fill-[#076653]' : ''}`} />
+                              <span className="relative inline-flex items-center justify-center">
+                                {poppingLikeIds[post.id] && (
+                                  <span className="absolute inset-0 rounded-full border-2 border-[#076653] animate-like-ring pointer-events-none" />
+                                )}
+                                <ThumbsUp
+                                  className={`w-4 h-4 transition-all duration-200 ${
+                                    post.likedByMe
+                                      ? 'fill-[#076653] text-[#076653] scale-110 animate-like-pop'
+                                      : ''
+                                  } ${poppingLikeIds[post.id] ? 'animate-like-pop text-[#076653]' : ''}`}
+                                />
+                              </span>
                               <span>{post.likes || 0} Likes</span>
-                            </button>
+                            </motion.button>
 
                             <div className="text-gray-500 font-medium">
                               {post.comments?.length || 0} comments • {post.shares || 0} shares
@@ -641,7 +656,7 @@ export default function PublicProfileModal({
                             rel="noreferrer"
                             className="font-semibold text-[#076653] hover:underline flex items-center gap-1"
                           >
-                            <Globe className="w-3.5 h-3.5" />
+                            <ExternalLink className="w-3.5 h-3.5" />
                             <span>{userProfile.website.replace(/^https?:\/\//, '')}</span>
                           </a>
                         </div>
@@ -665,7 +680,7 @@ export default function PublicProfileModal({
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                     {(userProfile.photos || [userProfile.coverPhoto, userProfile.avatar]).map((photoUrl, idx) => (
                       <div
-                        key={idx}
+                        key={`profile-photo-${photoUrl.slice(-24)}-${idx}`}
                         onClick={() => setPreviewPhoto(photoUrl)}
                         className="aspect-square bg-gray-100 rounded-xl overflow-hidden cursor-zoom-in group relative border border-gray-200 shadow-2xs"
                       >
@@ -734,6 +749,19 @@ export default function PublicProfileModal({
             </div>
           </div>
         </motion.div>
+
+        <ConfirmModal
+          isOpen={confirmUnfriendOpen}
+          title="Remove Friend"
+          message={`Are you sure you want to remove ${userProfile.name} as a friend?`}
+          confirmLabel="Remove Friend"
+          onConfirm={() => {
+            handleFriendAction(friendId, 'remove');
+            setConfirmUnfriendOpen(false);
+            showToast(`Removed ${userProfile.name} from friends`);
+          }}
+          onCancel={() => setConfirmUnfriendOpen(false)}
+        />
       </div>
     </AnimatePresence>
   );

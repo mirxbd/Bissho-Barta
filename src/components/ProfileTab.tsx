@@ -1,23 +1,38 @@
 import React, { useRef, useState, ChangeEvent, useMemo } from 'react';
-import { UserProfile, Post, Attachment, PageItem } from '../types';
-import { 
-  MapPin, Briefcase, GraduationCap, Heart, Edit2, Check, X, Camera, Save, Plus, Film, 
-  Image as ImageIcon, UserCheck, Users, Flag, Trash2, Building, ExternalLink, Search, 
-  Settings, Shield, Key, Bell, Lock, Eye, Smartphone, Monitor, CheckCircle2, Sliders, 
-  Volume2, Wifi, Globe, User, MessageCircle, Share2, Send
-} from 'lucide-react';
+import { UserProfile, Post, Attachment, PageItem, Friend } from '../types';
+import { Heart, X, MessageCircle, Share2, Send, ArrowLeft, Repeat2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { applySensitiveContentAlgorithm } from '../utils/sensitiveContent';
+import { ConfirmModal } from './ConfirmModal';
+import PostActionBar from './PostActionBar';
+import ShareHubModal from './ShareHubModal';
+import QuoteRepostModal from './QuoteRepostModal';
+import { getStoredVideoResolution, setStoredVideoResolution, VideoResolutionSetting } from '../utils/mediaOptimizer';
+import {
+  getStoredFollowingList,
+  setStoredFollowingList,
+  getStoredFollowersList,
+  setStoredFollowersList,
+  getStoredFeedPreference,
+  updateFeedPreferenceState,
+} from '../utils/contentPreference';
 
 interface ProfileTabProps {
   profile: UserProfile;
   posts: Post[];
   updateUserProfile: (profile: UserProfile) => void;
   likePost: (postId: string) => void;
-  addComment: (postId: string, commentText: string) => void;
+  addComment: (postId: string, commentText: string, isWatchPost?: boolean, replyToId?: string, replyToName?: string) => void;
   deletePost: (postId: string) => void;
   addPost: (content: string, image?: string, attachment?: Attachment) => void;
+  addSharedPost?: (postId: string) => boolean;
+  publishScheduledPost?: (postId: string) => void;
   onViewProfile?: (name: string, avatar?: string, id?: string) => void;
+  repostPost?: (postId: string, quoteContent?: string) => boolean;
+  undoRepost?: (postId: string) => void;
+  toggleSavePost?: (postId: string, folder?: string) => boolean;
+  sharePost?: (postId: string, method?: string) => void;
+  friends?: Friend[];
 }
 
 const isMediaVideo = (url?: string): boolean => {
@@ -40,19 +55,25 @@ export default function ProfileTab({
   likePost,
   addComment,
   deletePost,
-  addPost,
-  onViewProfile
+  addSharedPost,
+  publishScheduledPost,
+  onViewProfile,
+  repostPost,
+  undoRepost,
+  toggleSavePost,
+  sharePost,
+  friends = []
 }: ProfileTabProps) {
-  // File refs for avatar and cover attachment
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const coverInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Editing states
-  const [isEditingBio, setIsEditingBio] = useState(false);
-  const [editedBio, setEditedBio] = useState(profile.bio);
+  const [shareHubTarget, setShareHubTarget] = useState<Post | null>(null);
+  const [shareHubSection, setShareHubSection] = useState<'none' | 'connections' | 'app'>('none');
+  const [quoteRepostTarget, setQuoteRepostTarget] = useState<Post | null>(null);
 
   const [isEditingDetails, setIsEditingDetails] = useState(false);
   const [editedName, setEditedName] = useState(profile.name);
+  const [editedBio, setEditedBio] = useState(profile.bio);
   const [editedWork, setEditedWork] = useState(profile.work);
   const [editedEdu, setEditedEdu] = useState(profile.education);
   const [editedLoc, setEditedLoc] = useState(profile.location);
@@ -60,24 +81,24 @@ export default function ProfileTab({
   const [editedAvatar, setEditedAvatar] = useState(profile.avatar);
   const [editedCover, setEditedCover] = useState(profile.coverPhoto);
 
-  // Bissho Barta Settings Tabs & Sub-states
+  // Settings Tabs & Sub-states
   const [settingsTab, setSettingsTab] = useState<'account' | 'privacy' | 'security' | 'notifications' | 'media'>('account');
   const [postPrivacy, setPostPrivacy] = useState<'Public' | 'Friends' | 'Only Me'>('Public');
   const [profileDetailsPrivacy, setProfileDetailsPrivacy] = useState<'Public' | 'Friends' | 'Only Me'>('Friends');
   const [isProfileLocked, setIsProfileLocked] = useState(false);
   const [searchIndexing, setSearchIndexing] = useState(true);
 
-  // Security & Password Settings
-  const [accountEmail, setAccountEmail] = useState('mirxbd@gmail.com');
+  // Security & Password Settings (Demo labeled)
+  const [accountEmail, setAccountEmail] = useState('tariqul.islam@example.com');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordStatusMsg, setPasswordStatusMsg] = useState('');
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
-  const [activeSessions, setActiveSessions] = useState([
+  const [activeSessions] = useState([
     { id: 'sess-1', device: 'Windows PC • Chrome Browser', location: 'Dhaka, Bangladesh', time: 'Active now (This device)', current: true },
-    { id: 'sess-2', device: 'Samsung Galaxy S23 • Bissho Barta App', location: 'Dhaka, Bangladesh', time: '2 hours ago', current: false },
-    { id: 'sess-3', device: 'iPad Air • Safari Browser', location: 'Chittagong, Bangladesh', time: 'Yesterday', current: false },
+    { id: 'sess-2', device: 'Android Phone • Bissho Barta App', location: 'Dhaka, Bangladesh', time: '2 hours ago', current: false },
+    { id: 'sess-3', device: 'Tablet • Browser', location: 'Chattogram, Bangladesh', time: 'Yesterday', current: false },
   ]);
 
   // Notifications Settings
@@ -90,33 +111,99 @@ export default function ProfileTab({
   const [videoAutoplay, setVideoAutoplay] = useState<'Wi-Fi Only' | 'Cellular & Wi-Fi' | 'Never'>('Wi-Fi Only');
   const [inAppSounds, setInAppSounds] = useState(true);
   const [dataSaver, setDataSaver] = useState(false);
+  const [videoResolution, setVideoResolution] = useState<VideoResolutionSetting>(() => getStoredVideoResolution());
+  const [feedPreference, setFeedPreference] = useState<'For you' | 'Feeds'>(() =>
+    getStoredFeedPreference()
+  );
 
-  // Toast feedback
+  // Toast & Confirm Modal feedback
   const [settingsToast, setSettingsToast] = useState<string | null>(null);
+  const [postToDeleteId, setPostToDeleteId] = useState<string | null>(null);
 
-  // Quick post from profile
-  const [quickPostContent, setQuickPostContent] = useState('');
+  const showToast = (msg: string) => {
+    setSettingsToast(msg);
+    setTimeout(() => setSettingsToast(null), 3500);
+  };
+
+  // Inline comment & reply states on profile posts
   const [inlineComments, setInlineComments] = useState<{ [postId: string]: string }>({});
+  const [openCommentsPostIds, setOpenCommentsPostIds] = useState<Record<string, boolean>>({});
+  const [replyingTo, setReplyingTo] = useState<{ postId: string; commentId: string; authorName: string } | null>(null);
+  const [poppingLikeIds, setPoppingLikeIds] = useState<Record<string, boolean>>({});
+
+  const handleLikeClick = (postId: string) => {
+    setPoppingLikeIds((prev) => ({ ...prev, [postId]: true }));
+    likePost(postId);
+    setTimeout(() => {
+      setPoppingLikeIds((prev) => ({ ...prev, [postId]: false }));
+    }, 450);
+  };
 
   const handleProfileCommentSubmit = (postId: string) => {
     const text = inlineComments[postId];
     if (!text || !text.trim()) return;
-    addComment(postId, text);
+    const replyId = replyingTo?.postId === postId ? replyingTo.commentId : undefined;
+    const replyName = replyingTo?.postId === postId ? replyingTo.authorName : undefined;
+    addComment(postId, text, false, replyId, replyName);
     setInlineComments({ ...inlineComments, [postId]: '' });
+    setReplyingTo(null);
+    setOpenCommentsPostIds((prev) => ({ ...prev, [postId]: true }));
   };
 
-  // 3 Functions State: Following, Followers, Pages
+  const handleProfileSharePost = (postId: string, section: 'none' | 'connections' | 'app' = 'none') => {
+    const target = posts.find((p) => p.id === postId);
+    if (target) {
+      setShareHubTarget(target);
+      setShareHubSection(section);
+    }
+  };
+
+  const handleInstantRepost = (postId: string) => {
+    if (repostPost) {
+      const ok = repostPost(postId);
+      showToast(ok ? 'Reposted to your feed!' : 'Could not repost this post.');
+    }
+  };
+
+  const handleUndoRepost = (postId: string) => {
+    if (undoRepost) {
+      undoRepost(postId);
+      showToast('Undo repost: Removed from your feed.');
+    }
+  };
+
+  const handleToggleSave = (postId: string) => {
+    if (toggleSavePost) {
+      const saved = toggleSavePost(postId);
+      showToast(saved ? 'Post saved to your private collection!' : 'Post removed from Saved.');
+    }
+  };
+
+  const handleCompleteShare = (postId: string, method: string) => {
+    if (sharePost) {
+      sharePost(postId, method);
+    }
+  };
+
+  const handleQuoteRepostSubmit = (postId: string, thoughts: string) => {
+    if (repostPost) {
+      repostPost(postId, thoughts);
+      showToast('Reposted with your thoughts!');
+    }
+  };
+
+  // Following, Followers, Pages state
   const followingCount = profile.followingCount ?? 184;
   const followersCount = profile.followersCount ?? 1250;
   const userPages: PageItem[] = profile.pages ?? [
     {
       id: "page-1",
-      name: "Tech Trends & Code",
+      name: "Dhaka Tech & Code",
       category: "Science & Technology",
       avatar: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=150&h=150&q=80",
       followersCount: 3420,
       createdAt: "2024",
-      bio: "Official page for latest Tech Trends, web dev tips, and AI code breakdowns."
+      bio: "Official page for Bangladesh software engineering, web dev tips, and community tech updates."
     }
   ];
 
@@ -125,22 +212,10 @@ export default function ProfileTab({
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showPagesModal, setShowPagesModal] = useState(false);
 
-  // Search inside following modal
   const [followingSearch, setFollowingSearch] = useState('');
-  const [followingList, setFollowingList] = useState([
-    { id: 'fl-1', name: 'Sarah Jenkins', role: 'UX Designer', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: true },
-    { id: 'fl-2', name: 'David Chen', role: 'Full Stack Developer', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: true },
-    { id: 'fl-3', name: 'Emily Rodriguez', role: 'Product Manager', avatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: true },
-    { id: 'fl-4', name: 'Michael Chang', role: 'DevOps Engineer', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: true },
-    { id: 'fl-5', name: 'Jessica Taylor', role: 'AI Researcher', avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: true },
-  ]);
+  const [followingList, setFollowingList] = useState(() => getStoredFollowingList());
 
-  const [followersList, setFollowersList] = useState([
-    { id: 'f-1', name: 'Marcus Aurelius', role: 'Founder & Author', avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: false },
-    { id: 'f-2', name: 'Anna Peterson', role: 'Digital Marketer', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: true },
-    { id: 'f-3', name: 'Robert Downey', role: 'Content Creator', avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: false },
-    { id: 'f-4', name: 'Sophia Martinez', role: 'Graphic Artist', avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&h=150&q=80', isFollowing: true },
-  ]);
+  const [followersList, setFollowersList] = useState(() => getStoredFollowersList());
 
   // Create Page Form state
   const [isCreatingPage, setIsCreatingPage] = useState(false);
@@ -155,7 +230,11 @@ export default function ProfileTab({
     const diff = nextState ? 1 : -1;
     const newCount = Math.max(0, followingCount + diff);
 
-    setFollowingList(prev => prev.map(f => f.id === id ? { ...f, isFollowing: nextState } : f));
+    setFollowingList(prev => {
+      const updated = prev.map(f => f.id === id ? { ...f, isFollowing: nextState } : f);
+      setStoredFollowingList(updated);
+      return updated;
+    });
     updateUserProfile({ ...profile, followingCount: newCount });
   };
 
@@ -166,12 +245,20 @@ export default function ProfileTab({
     const diff = nextState ? 1 : -1;
     const newCount = Math.max(0, followingCount + diff);
 
-    setFollowersList(prev => prev.map(f => f.id === id ? { ...f, isFollowing: nextState } : f));
+    setFollowersList(prev => {
+      const updated = prev.map(f => f.id === id ? { ...f, isFollowing: nextState } : f);
+      setStoredFollowersList(updated);
+      return updated;
+    });
     updateUserProfile({ ...profile, followingCount: newCount });
   };
 
   const handleRemoveFollower = (id: string) => {
-    setFollowersList(prev => prev.filter(f => f.id !== id));
+    setFollowersList(prev => {
+      const updated = prev.filter(f => f.id !== id);
+      setStoredFollowersList(updated);
+      return updated;
+    });
     const newFollowersCount = Math.max(0, followersCount - 1);
     updateUserProfile({ ...profile, followersCount: newFollowersCount });
   };
@@ -213,7 +300,7 @@ export default function ProfileTab({
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
-        alert('Only image files can be uploaded for profile photo.');
+        showToast('Only image files can be uploaded for profile photo.');
         e.target.value = '';
         return;
       }
@@ -238,21 +325,19 @@ export default function ProfileTab({
       const isVideo = file.type.startsWith('video/');
 
       if (!isImage && !isVideo) {
-        alert('Please select an image or video file (MP4 480p supported) for cover attachment.');
+        showToast('Please select an image or video file for cover photo.');
         e.target.value = '';
         return;
       }
 
-      // Max file size 50MB
       const maxSizeBytes = 50 * 1024 * 1024;
       if (file.size > maxSizeBytes) {
-        alert('File size exceeds 50 MB limit. Please choose a smaller video/image file.');
+        showToast('File size exceeds 50 MB limit. Please choose a smaller file.');
         e.target.value = '';
         return;
       }
 
       if (isVideo) {
-        // Enforce max 2 minutes (120 seconds) video length limit
         const tempVideo = document.createElement('video');
         tempVideo.preload = 'metadata';
         const blobUrl = URL.createObjectURL(file);
@@ -264,11 +349,10 @@ export default function ProfileTab({
           if (duration > 120) {
             const mins = Math.floor(duration / 60);
             const secs = Math.round(duration % 60);
-            alert(`Selected video length is ${mins}m ${secs}s. Maximum allowed cover video length is 2 minutes (120 seconds). Please upload a video under 2 minutes.`);
+            showToast(`Video length is ${mins}m ${secs}s. Maximum cover video length is 2 minutes.`);
             return;
           }
 
-          // Duration is <= 120s, process file as Data URL
           const reader = new FileReader();
           reader.onloadend = () => {
             const result = reader.result as string;
@@ -283,12 +367,11 @@ export default function ProfileTab({
 
         tempVideo.onerror = () => {
           URL.revokeObjectURL(blobUrl);
-          alert('Could not parse video metadata. Please ensure the file is a supported MP4 or video format.');
+          showToast('Could not parse video metadata. Please use a supported MP4 format.');
         };
 
         tempVideo.src = blobUrl;
       } else {
-        // Image file
         const reader = new FileReader();
         reader.onloadend = () => {
           const result = reader.result as string;
@@ -304,66 +387,58 @@ export default function ProfileTab({
     e.target.value = '';
   };
 
-  const handleSaveBio = () => {
-    updateUserProfile({ ...profile, bio: editedBio });
-    setIsEditingBio(false);
+  const handleOpenEditProfile = () => {
+    setEditedName(profile.name);
+    setEditedBio(profile.bio);
+    setEditedWork(profile.work);
+    setEditedEdu(profile.education);
+    setEditedLoc(profile.location);
+    setEditedRel(profile.relationship);
+    setEditedAvatar(profile.avatar);
+    setEditedCover(profile.coverPhoto);
+    setSettingsTab('account');
+    setIsEditingDetails(true);
   };
 
   const handleSaveSettings = () => {
     updateUserProfile({
+      ...profile,
       name: editedName,
       avatar: editedAvatar,
       coverPhoto: editedCover,
-      bio: profile.bio,
+      bio: editedBio,
       work: editedWork,
       education: editedEdu,
       location: editedLoc,
       relationship: editedRel
     });
     setIsEditingDetails(false);
-    setSettingsToast("Bissho Barta settings saved successfully!");
-    setTimeout(() => setSettingsToast(null), 3500);
+    showToast("Profile & settings saved!");
   };
 
   const handlePasswordChangeSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!currentPassword) {
-      setPasswordStatusMsg("Please enter your current password.");
-      return;
-    }
-    if (newPassword.length < 6) {
-      setPasswordStatusMsg("New password must be at least 6 characters.");
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setPasswordStatusMsg("New passwords do not match.");
-      return;
-    }
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-    setPasswordStatusMsg("Password changed successfully!");
-    setTimeout(() => setPasswordStatusMsg(''), 4000);
+    setPasswordStatusMsg("Demo (not connected): Password management requires a connected backend account.");
   };
 
   const handleLogoutOtherSessions = () => {
-    setActiveSessions(prev => prev.filter(s => s.current));
-    setSettingsToast("Logged out of all other active sessions.");
-    setTimeout(() => setSettingsToast(null), 3500);
+    showToast("Demo (not connected): Session management is simulated in demo mode.");
   };
 
-  const handleCreateProfilePost = () => {
-    if (!quickPostContent.trim()) return;
-    addPost(quickPostContent);
-    setQuickPostContent('');
-  };
+  const myUserId = profile.id || 'user_me';
 
-  // Filter posts to show only the user's posts (memoized)
-  const myPosts = useMemo(() => {
-    return posts.filter(
-      (post) => post.authorName === profile.name || post.authorName === "Alex Rivera"
+  // Separate user's scheduled posts vs published timeline posts (match by authorId or authorName, no hardcoded Alex Rivera)
+  const { myPosts, myScheduledPosts } = useMemo(() => {
+    const userOwned = posts.filter(
+      (post) => (post.authorId && post.authorId === myUserId) || post.authorName === profile.name
     );
-  }, [posts, profile.name]);
+    return {
+      myPosts: userOwned.filter((p) => !p.isScheduled),
+      myScheduledPosts: userOwned.filter((p) => Boolean(p.isScheduled))
+    };
+  }, [posts, profile.name, myUserId]);
+
+  const formattedFollowers = followersCount >= 1000 ? `${(followersCount / 1000).toFixed(1)}K` : `${followersCount}`;
 
   return (
     <div className="bg-[#F0F2F5] lg:bg-transparent min-h-[calc(100vh-112px)] lg:min-h-0 pb-4 lg:pb-4 select-none font-sans" id="profile-tab-container">
@@ -385,45 +460,56 @@ export default function ProfileTab({
         id="cover-attachment-file-input"
       />
 
-      {/* Settings Saved Floating Toast Notification */}
+      {/* Confirm Delete Post Modal */}
+      <ConfirmModal
+        isOpen={Boolean(postToDeleteId)}
+        title="Delete Post"
+        message="Are you sure you want to permanently delete this post?"
+        confirmLabel="Delete"
+        onConfirm={() => {
+          if (postToDeleteId) {
+            deletePost(postToDeleteId);
+            setPostToDeleteId(null);
+          }
+        }}
+        onCancel={() => setPostToDeleteId(null)}
+      />
+
+      {/* Floating Toast Notification */}
       <AnimatePresence>
         {settingsToast && (
           <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.9 }}
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.9 }}
-            className="fixed top-14 left-1/2 -translate-x-1/2 z-60 bg-emerald-600 text-white px-4 py-2 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 border border-emerald-400"
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="fixed top-14 left-1/2 -translate-x-1/2 z-60 bg-gray-900 text-white px-4 py-2 rounded-full shadow-lg text-xs font-bold flex items-center gap-2 border border-gray-700"
           >
-            <CheckCircle2 className="w-4 h-4 text-white" />
             <span>{settingsToast}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* 1. COVER PHOTO & AVATAR BLOCK */}
-      <div className="bg-white pb-3.5 border-b border-gray-200 shadow-sm relative">
+      <div className="bg-white pb-4 border-b border-gray-200 shadow-sm relative">
         {/* Cover Photo / Video Container */}
-        <div className="h-48 w-full bg-slate-900 overflow-hidden relative group">
+        <div className="h-48 w-full bg-slate-900 overflow-hidden relative">
           {isMediaVideo(profile.coverPhoto) ? (
             <div className="relative w-full h-full bg-black flex items-center justify-center">
-              <video 
+              <video
                 key={profile.coverPhoto.slice(0, 80)}
-                src={profile.coverPhoto} 
-                controls 
-                autoPlay 
-                loop 
-                muted 
-                playsInline 
+                src={profile.coverPhoto}
+                controls
+                autoPlay
+                loop
+                muted
+                playsInline
                 className="w-full h-full object-cover bg-black"
-                onError={(e) => {
-                  console.error("Cover video playback error:", e);
-                }}
               />
             </div>
           ) : (
-            <img 
-              src={profile.coverPhoto} 
-              alt="Cover" 
+            <img
+              src={profile.coverPhoto}
+              alt="Cover"
               className="w-full h-full object-cover"
               referrerPolicy="no-referrer"
               onError={(e) => {
@@ -431,245 +517,286 @@ export default function ProfileTab({
               }}
             />
           )}
-
-          {/* Cover attachment upload button */}
-          <button 
-            onClick={() => coverInputRef.current?.click()}
-            className="absolute bottom-2.5 right-2.5 bg-black/75 hover:bg-black/90 text-white px-3 py-1.5 rounded-full flex items-center gap-1.5 text-xs font-semibold shadow-md backdrop-blur-xs transition-all cursor-pointer z-10 border border-white/20"
-            title="Upload cover photo or video"
-            id="upload-cover-attachment-btn"
-          >
-            <Camera className="w-4 h-4 text-[#E3EF26]" />
-            <span>Edit Cover</span>
-          </button>
         </div>
 
-        {/* Avatar overlapping */}
+        {/* Avatar overlapping (no camera icons) */}
         <div className="absolute top-32 left-1/2 -translate-x-1/2 flex flex-col items-center z-20">
-          <div className="w-28 h-28 rounded-full border-4 border-white shadow-md overflow-hidden bg-gray-150 relative group">
-            <img 
-              src={profile.avatar} 
-              alt={profile.name} 
-              onClick={() => onViewProfile?.(profile.name, profile.avatar)}
+          <div className="w-28 h-28 rounded-full border-4 border-white shadow-md overflow-hidden bg-gray-150 relative">
+            <img
+              src={profile.avatar}
+              alt={profile.name}
+              onClick={() => onViewProfile?.(profile.name, profile.avatar, profile.id)}
               className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
               title="Click to view your public profile"
               referrerPolicy="no-referrer"
             />
-            {/* Click avatar photo icon */}
-            <button 
-              onClick={() => avatarInputRef.current?.click()}
-              className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[10px] font-bold cursor-pointer"
-              title="Click to upload profile photo"
-              id="upload-avatar-hover-btn"
-            >
-              <Camera className="w-5 h-5 mb-0.5 text-[#E3EF26]" />
-              <span>Edit Photo</span>
-            </button>
-            <button 
-              onClick={() => avatarInputRef.current?.click()}
-              className="absolute bottom-1 right-1 bg-white hover:bg-[#EBF7F2] border border-gray-300 text-gray-700 p-1.5 rounded-full shadow-md cursor-pointer group-hover:hidden"
-              title="Edit profile photo"
-              id="upload-avatar-icon-btn"
-            >
-              <Camera className="w-3.5 h-3.5 text-[#076653]" />
-            </button>
           </div>
         </div>
 
-        {/* Name and Bio */}
+        {/* Name, Combined Plain Text Stats Line, Bio, and Single Edit Profile Button */}
         <div className="mt-14 text-center px-4">
-          <h2 
-            onClick={() => onViewProfile?.(profile.name, profile.avatar)}
+          <h2
+            onClick={() => onViewProfile?.(profile.name, profile.avatar, profile.id)}
             className="text-base font-bold text-gray-900 leading-tight cursor-pointer hover:text-[#076653] hover:underline inline-block"
             title="Click to view public profile details"
           >
             {profile.name}
           </h2>
-          
-          {/* 3 FUNCTIONS RIGHT AFTER PROFILE NAME: FOLLOWING, FOLLOWERS, PAGES */}
-          <div className="flex items-center justify-center gap-2 mt-2.5 mb-2 flex-wrap" id="profile-three-functions-bar">
-            {/* 1. FOLLOWING NUMBER */}
+
+          {/* Combined plain text line for Following / Followers / Pages */}
+          <p className="text-xs text-gray-600 mt-1" id="profile-stats-plain-line">
             <button
+              type="button"
               onClick={() => setShowFollowingModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 bg-[#EBF7F2] hover:bg-[#d8efe5] border border-[#076653]/30 rounded-full text-xs font-semibold text-[#076653] transition-all shadow-xs cursor-pointer active:scale-95"
+              className="hover:text-[#076653] hover:underline cursor-pointer font-medium"
               id="profile-following-btn"
-              title="Click to view total users followed"
             >
-              <UserCheck className="w-3.5 h-3.5 text-[#076653]" />
-              <span><strong className="font-extrabold">{followingCount}</strong> Following</span>
+              {followingCount} Following
             </button>
-
-            {/* 2. FOLLOWERS NUMBER */}
+            <span className="mx-1.5 text-gray-400">·</span>
             <button
+              type="button"
               onClick={() => setShowFollowersModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-full text-xs font-semibold text-purple-700 transition-all shadow-xs cursor-pointer active:scale-95"
+              className="hover:text-[#076653] hover:underline cursor-pointer font-medium"
               id="profile-followers-btn"
-              title="Click to view total followers"
             >
-              <Users className="w-3.5 h-3.5 text-purple-600" />
-              <span><strong className="font-extrabold">{followersCount >= 1000 ? (followersCount/1000).toFixed(1) + 'K' : followersCount}</strong> Followers</span>
+              {formattedFollowers} Followers
             </button>
-
-            {/* 3. PAGES (SHOW IF USER CREATED A PAGE OR NOT) */}
-            <button
-              onClick={() => setShowPagesModal(true)}
-              className={`flex items-center gap-1.5 px-3 py-1 border rounded-full text-xs font-semibold transition-all shadow-xs cursor-pointer active:scale-95 ${
-                userPages.length > 0
-                  ? 'bg-emerald-50 hover:bg-emerald-100 border-emerald-300 text-emerald-800'
-                  : 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-800'
-              }`}
-              id="profile-pages-btn"
-              title="Click to view or create Bissho Barta Pages"
-            >
-              <Flag className={`w-3.5 h-3.5 ${userPages.length > 0 ? 'text-emerald-600' : 'text-amber-600'}`} />
-              <span>
-                {userPages.length > 0 ? (
-                  <><strong>{userPages.length}</strong> {userPages.length === 1 ? 'Page Created' : 'Pages Created'}</>
-                ) : (
-                  <>No Pages Created</>
-                )}
-              </span>
-            </button>
-          </div>
-          
-          {/* Bio display or editing */}
-          <div className="mt-2 text-xs text-gray-600 max-w-sm mx-auto">
-            {!isEditingBio ? (
-              <div className="flex flex-col items-center gap-1.5">
-                <p className="italic leading-relaxed">"{profile.bio}"</p>
+            {userPages.length > 0 && (
+              <>
+                <span className="mx-1.5 text-gray-400">·</span>
                 <button
-                  onClick={() => {
-                    setEditedBio(profile.bio);
-                    setIsEditingBio(true);
-                  }}
-                  className="text-[10px] text-[#076653] font-semibold hover:underline flex items-center gap-1"
-                  id="edit-bio-btn"
+                  type="button"
+                  onClick={() => setShowPagesModal(true)}
+                  className="hover:text-[#076653] hover:underline cursor-pointer font-medium"
+                  id="profile-pages-btn"
                 >
-                  <Edit2 className="w-3 h-3" />
-                  <span>Edit Bio</span>
+                  {userPages.length} {userPages.length === 1 ? 'Page' : 'Pages'}
                 </button>
-              </div>
-            ) : (
-              <div className="bg-gray-50 border border-gray-200 p-2.5 rounded flex flex-col gap-2 mt-1.5">
-                <textarea
-                  value={editedBio}
-                  onChange={(e) => setEditedBio(e.target.value)}
-                  className="w-full text-xs text-gray-850 p-1.5 border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#076653] resize-none"
-                  rows={2}
-                  maxLength={150}
-                  id="bio-textarea-field"
-                />
-                <div className="flex gap-1.5 justify-end">
-                  <button
-                    onClick={() => setIsEditingBio(false)}
-                    className="px-2.5 py-1 text-[10px] font-bold text-gray-500 bg-white border border-gray-200 rounded"
-                    id="cancel-bio-btn"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveBio}
-                    className="px-2.5 py-1 text-[10px] font-bold text-[#E3EF26] bg-[#076653] hover:bg-[#065042] rounded flex items-center gap-1"
-                    id="save-bio-btn"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Save</span>
-                  </button>
-                </div>
-              </div>
+              </>
             )}
+          </p>
+
+          {/* Bio display */}
+          {profile.bio && (
+            <p className="mt-2 text-xs text-gray-600 max-w-sm mx-auto italic leading-relaxed">
+              "{profile.bio}"
+            </p>
+          )}
+
+          {/* Single Edit Profile Button */}
+          <div className="mt-3 flex justify-center">
+            <button
+              type="button"
+              onClick={handleOpenEditProfile}
+              className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-800 border border-gray-300 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              id="edit-profile-single-btn"
+            >
+              Edit Profile
+            </button>
           </div>
         </div>
       </div>
 
       {/* 2. PROFILE DETAILS / ABOUT LIST */}
       <div className="bg-white p-3.5 border-y border-gray-200 mt-2.5 shadow-sm" id="profile-about-panel">
-        <div className="flex justify-between items-center mb-3">
+        <div className="flex justify-between items-center mb-2.5">
           <h3 className="text-xs font-bold text-gray-900 uppercase tracking-wider">About Me</h3>
         </div>
 
-        <div className="flex flex-col gap-2.5 text-xs text-gray-700">
-          <div className="flex items-center gap-2.5">
-            <Briefcase className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span>Works as <span className="font-semibold">{profile.work}</span></span>
+        <div className="flex flex-col gap-2 text-xs text-gray-700">
+          <div>
+            Works as <span className="font-semibold text-gray-900">{profile.work}</span>
           </div>
-          <div className="flex items-center gap-2.5">
-            <GraduationCap className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span>Studied at <span className="font-semibold">{profile.education}</span></span>
+          <div>
+            Studied at <span className="font-semibold text-gray-900">{profile.education}</span>
           </div>
-          <div className="flex items-center gap-2.5">
-            <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span>Lives in <span className="font-semibold">{profile.location}</span></span>
+          <div>
+            Lives in <span className="font-semibold text-gray-900">{profile.location}</span>
           </div>
-          <div className="flex items-center gap-2.5">
-            <Heart className="w-4 h-4 text-gray-400 flex-shrink-0" />
-            <span className="font-medium">{profile.relationship}</span>
+          <div>
+            Status: <span className="font-semibold text-gray-900">{profile.relationship}</span>
           </div>
         </div>
       </div>
 
-
-      {/* 4. MY TIMELINE POSTS */}
-      <div className="mt-2.5 flex flex-col gap-2.5" id="profile-posts-list">
-        <div className="bg-white p-3 border-b border-gray-200 shadow-sm flex items-center justify-between">
-          <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">My Posts ({myPosts.length})</span>
-        </div>
-
-        {myPosts.length === 0 ? (
-          <div className="bg-white py-12 px-4 text-center border-y border-gray-200 shadow-sm">
-            <p className="text-gray-500 text-xs">You haven't posted anything yet. Share your first update!</p>
+      {/* 3. SCHEDULED POSTS SECTION (Shown when scheduled posts exist) */}
+      {myScheduledPosts.length > 0 && (
+        <div className="mt-2.5 bg-amber-50/70 border-y border-amber-200 p-3.5 shadow-xs space-y-2.5" id="profile-scheduled-posts-section">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-amber-900 uppercase tracking-wider">
+              Scheduled Posts ({myScheduledPosts.length})
+            </span>
+            <span className="text-[10px] text-amber-700 font-medium">
+              Auto-publishes when scheduled time arrives
+            </span>
           </div>
-        ) : (
-          myPosts.map((post) => (
+
+          <div className="space-y-2">
+            {myScheduledPosts.map((sPost) => (
+              <div
+                key={sPost.id}
+                className="bg-white border border-amber-200 rounded-xl p-3 flex flex-col gap-2 shadow-2xs"
+                id={`scheduled-post-card-${sPost.id}`}
+              >
+                <div className="flex items-center justify-between text-[10px] text-amber-800 font-semibold">
+                  <span>
+                    Scheduled for: {sPost.scheduledFor ? new Date(sPost.scheduledFor).toLocaleString() : 'Upcoming'}
+                  </span>
+                  {(sPost.postType === 'Private' || sPost.postType === 'Subscriber') && (
+                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-700 rounded border border-gray-200">
+                      {sPost.postType}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-800 whitespace-pre-wrap">{sPost.content}</p>
+                <div className="flex items-center justify-end gap-2 pt-1 border-t border-gray-100">
+                  {publishScheduledPost && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        publishScheduledPost(sPost.id);
+                        showToast("Scheduled post published now!");
+                      }}
+                      className="px-2.5 py-1 bg-[#076653] hover:bg-[#065042] text-[#E3EF26] rounded text-[10px] font-bold cursor-pointer"
+                    >
+                      Publish Now
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPostToDeleteId(sPost.id)}
+                    className="px-2.5 py-1 bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600 rounded text-[10px] font-bold cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 4. MY TIMELINE POSTS (Hidden when 0 posts exist per requirement 6) */}
+      {myPosts.length > 0 && (
+        <div className="mt-2.5 flex flex-col gap-2.5" id="profile-posts-list">
+          <div className="bg-white p-3 border-b border-gray-200 shadow-sm flex items-center justify-between">
+            <span className="text-xs font-bold text-gray-800 uppercase tracking-wider">My Posts ({myPosts.length})</span>
+          </div>
+
+          {myPosts.map((post) => {
+            const originalPost = post.originalPostId ? posts.find(p => p.id === post.originalPostId) : null;
+            const isOriginalDeleted = !!post.originalPostId && !originalPost;
+
+            return (
             <article key={post.id} className="bg-white border-y border-gray-200 shadow-sm flex flex-col" id={`my-post-${post.id}`}>
+              {/* Repost Header Attribution */}
+              {post.repostedBy && (
+                <div className="px-3 pt-2 pb-1.5 flex items-center gap-1.5 text-xs text-gray-500 font-semibold border-b border-gray-100 bg-gray-50/70">
+                  <Repeat2 className="w-3.5 h-3.5 text-[#076653]" />
+                  <span className="text-gray-900 font-bold">
+                    {post.repostedBy.userId === profile.id || post.repostedBy.name === profile.name ? 'You' : post.repostedBy.name}
+                  </span>
+                  <span>reposted</span>
+                  <span className="text-[10px] text-gray-400">• {post.repostedBy.timestamp}</span>
+                </div>
+              )}
+
               {/* Post Header */}
               <div className="p-3 flex items-center justify-between">
                 <div className="flex gap-2 items-center">
-                  <img 
-                    src={profile.avatar} 
-                    alt="" 
-                    onClick={() => onViewProfile?.(profile.name, profile.avatar)}
+                  <img
+                    src={post.repostedBy ? (originalPost?.authorAvatar || post.authorAvatar) : profile.avatar}
+                    alt=""
+                    onClick={() => onViewProfile?.(post.authorName, post.authorAvatar, post.authorId)}
                     className="w-10 h-10 rounded-full object-cover border border-gray-200 cursor-pointer hover:ring-2 hover:ring-[#076653] transition-all"
-                    title={`View ${profile.name}'s profile`}
+                    title={`View ${post.authorName}'s profile`}
                     referrerPolicy="no-referrer"
                   />
                   <div>
-                    <h3 
-                      onClick={() => onViewProfile?.(profile.name, profile.avatar)}
+                    <h3
+                      onClick={() => onViewProfile?.(post.authorName, post.authorAvatar, post.authorId)}
                       className="text-xs font-bold text-gray-900 leading-tight cursor-pointer hover:text-[#076653] hover:underline"
-                      title={`View ${profile.name}'s profile`}
+                      title={`View ${post.authorName}'s profile`}
                     >
-                      {profile.name}
+                      {post.authorName}
                     </h3>
-                    <span className="text-[10px] text-gray-500">{post.timestamp}</span>
+                    <div className="flex items-center gap-1.5 text-[10px] text-gray-500 mt-0.5">
+                      <span>{post.timestamp}</span>
+                      {(post.postType === 'Subscriber' || post.postType === 'Private') && (
+                        <>
+                          <span>•</span>
+                          <span className="inline-flex items-center bg-gray-100 px-1.5 py-0.2 rounded text-[9.5px] font-semibold text-gray-700 border border-gray-200">
+                            {post.postType}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    if (confirm("Delete this post permanently?")) {
-                      deletePost(post.id);
-                    }
-                  }}
-                  className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-gray-50"
+                  onClick={() => setPostToDeleteId(post.id)}
+                  className="text-gray-400 hover:text-red-500 p-1 rounded hover:bg-gray-50 cursor-pointer"
                   id={`delete-my-post-${post.id}`}
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Content */}
-              <div className="px-3 pb-2 text-xs text-gray-800 leading-normal">
-                {applySensitiveContentAlgorithm(post.content)}
-              </div>
+              {/* Content & Deleted check */}
+              {isOriginalDeleted ? (
+                <div className="mx-3 my-3 p-3.5 bg-gray-50 border border-dashed border-gray-300 rounded-xl text-xs text-gray-500 italic flex items-center gap-2">
+                  <span>This post is no longer available because the original post was deleted.</span>
+                </div>
+              ) : (
+                <>
+                  <div className="px-3 pb-2 text-xs text-gray-800 leading-normal whitespace-pre-wrap">
+                    {applySensitiveContentAlgorithm(post.content)}
+                  </div>
 
-              {/* Post Media Rendering (Handles single or multiple attachments) */}
+                  {/* Embedded Quote Card if Quote Repost */}
+                  {post.isQuoteRepost && (originalPost || post.sharedPost) && (
+                    <div className="mx-3 mb-3 border border-gray-200 rounded-xl p-3 bg-gray-50/70 flex flex-col gap-2">
+                      <div className="flex items-center gap-2">
+                        <img
+                          src={originalPost?.authorAvatar || post.sharedPost?.authorAvatar || ''}
+                          alt=""
+                          className="w-5 h-5 rounded-full object-cover border border-gray-200 shrink-0"
+                          referrerPolicy="no-referrer"
+                        />
+                        <span className="text-xs font-bold text-gray-900">
+                          {originalPost?.authorName || post.sharedPost?.authorName}
+                        </span>
+                        <span className="text-[10px] text-gray-400">
+                          · {originalPost?.timestamp || post.sharedPost?.timestamp}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-700 leading-relaxed line-clamp-3">
+                        {originalPost?.content || post.sharedPost?.content}
+                      </p>
+                      {(originalPost?.image || post.sharedPost?.image) && (
+                        <div className="rounded-lg overflow-hidden max-h-48 bg-zinc-900">
+                          <img
+                            src={originalPost?.image || post.sharedPost?.image}
+                            alt=""
+                            className="w-full h-full object-cover max-h-48"
+                            referrerPolicy="no-referrer"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {/* Post Media Rendering */}
               {(() => {
-                const postAttachments = post.attachments && post.attachments.length > 0 
-                  ? post.attachments 
-                  : post.attachment 
-                    ? [post.attachment] 
-                    : post.image 
-                      ? [{ name: 'image.jpg', size: '', type: 'image', url: post.image }] 
+                const postAttachments = post.attachments && post.attachments.length > 0
+                  ? post.attachments
+                  : post.attachment
+                    ? [post.attachment]
+                    : post.image
+                      ? [{ name: 'image.jpg', size: '', type: 'image' as const, url: post.image }]
                       : [];
 
                 if (postAttachments.length === 0) return null;
@@ -680,20 +807,18 @@ export default function ProfileTab({
 
                 return (
                   <div className="border-y border-gray-100 bg-gray-50 flex flex-col divide-y divide-gray-100">
-                    {/* 1. Videos */}
                     {videos.map((vid, vIdx) => (
-                      <div key={vIdx} className="relative group/video bg-black flex flex-col">
-                        <video 
-                          src={vid.url} 
-                          className="w-full max-h-[300px] object-contain bg-black" 
-                          controls 
+                      <div key={`prof-vid-${post.id}-${vid.name || vIdx}`} className="relative group/video bg-black flex flex-col">
+                        <video
+                          src={vid.url}
+                          className="w-full max-h-[300px] object-contain bg-black"
+                          controls
                           playsInline
                         />
-                        {/* Write Comment Box on Video */}
                         <div className="bg-zinc-900/95 border-t border-zinc-800/80 px-3 py-1.5 flex items-center gap-2 text-white" id={`profile-video-comment-bar-${post.id}-${vIdx}`}>
-                          <img 
-                            src={profile.avatar} 
-                            alt="" 
+                          <img
+                            src={profile.avatar}
+                            alt=""
                             className="w-5 h-5 rounded-full object-cover border border-white/20 shrink-0"
                             referrerPolicy="no-referrer"
                           />
@@ -708,60 +833,35 @@ export default function ProfileTab({
                             className="bg-zinc-800/90 border border-zinc-700/60 rounded-full px-3 py-1 text-xs text-white placeholder-zinc-400 flex-1 focus:outline-none focus:border-[#E3EF26] focus:bg-zinc-800"
                             id={`profile-video-comment-input-${post.id}-${vIdx}`}
                           />
-                          <div className="flex items-center gap-1 shrink-0">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const curr = inlineComments[post.id] || '';
-                                setInlineComments({ ...inlineComments, [post.id]: curr + "🔥" });
-                              }}
-                              className="text-xs hover:scale-125 transition-transform p-0.5 cursor-pointer"
-                              title="Fire"
-                            >
-                              🔥
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const curr = inlineComments[post.id] || '';
-                                setInlineComments({ ...inlineComments, [post.id]: curr + "❤️" });
-                              }}
-                              className="text-xs hover:scale-125 transition-transform p-0.5 cursor-pointer"
-                              title="Love"
-                            >
-                              ❤️
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleProfileCommentSubmit(post.id)}
-                              className="p-1 text-[#E3EF26] hover:text-white transition-colors cursor-pointer"
-                              title="Post comment"
-                              id={`profile-video-comment-submit-${post.id}-${vIdx}`}
-                            >
-                              <Send className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleProfileCommentSubmit(post.id)}
+                            className="p-1 text-[#E3EF26] hover:text-white transition-colors cursor-pointer"
+                            title="Post comment"
+                            id={`profile-video-comment-submit-${post.id}-${vIdx}`}
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     ))}
 
-                    {/* 2. Images Grid */}
                     {images.length > 0 && (
                       <div className={`overflow-hidden bg-gray-900 ${
-                        images.length === 1 
-                          ? 'flex justify-center max-h-[300px]' 
-                          : images.length === 2 
-                            ? 'grid grid-cols-2 gap-0.5 max-h-[280px]' 
-                            : images.length === 3 
-                              ? 'grid grid-cols-3 gap-0.5 max-h-[240px]' 
+                        images.length === 1
+                          ? 'flex justify-center max-h-[300px]'
+                          : images.length === 2
+                            ? 'grid grid-cols-2 gap-0.5 max-h-[280px]'
+                            : images.length === 3
+                              ? 'grid grid-cols-3 gap-0.5 max-h-[240px]'
                               : 'grid grid-cols-2 sm:grid-cols-3 gap-0.5 max-h-[320px]'
                       }`}>
                         {images.map((img, iIdx) => (
-                          <div key={iIdx} className="relative overflow-hidden bg-black flex items-center justify-center group/img aspect-4/3 sm:aspect-auto">
-                            <img 
-                              src={img.url} 
-                              alt="" 
-                              className="w-full h-full object-cover hover:scale-102 transition-transform duration-200"
+                          <div key={`prof-img-${post.id}-${img.name || iIdx}`} className="relative overflow-hidden bg-black flex items-center justify-center aspect-4/3 sm:aspect-auto">
+                            <img
+                              src={img.url}
+                              alt=""
+                              className="w-full h-full object-cover"
                               referrerPolicy="no-referrer"
                               loading="lazy"
                               decoding="async"
@@ -771,20 +871,14 @@ export default function ProfileTab({
                       </div>
                     )}
 
-                    {/* 3. Files */}
                     {files.map((fl, fIdx) => (
-                      <div key={fIdx} className="p-3 w-full flex items-center justify-between gap-3 bg-white border-y border-gray-100 py-3 px-4">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 bg-[#EBF7F2] border border-[#076653]/30 text-[#076653] rounded flex items-center justify-center font-bold text-base">
-                            📄
-                          </div>
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-xs font-semibold text-gray-800 truncate">{fl.name}</span>
-                            <span className="text-[10px] text-gray-500">{fl.size}</span>
-                          </div>
+                      <div key={`prof-file-${post.id}-${fl.name || fIdx}`} className="p-3 w-full flex items-center justify-between gap-3 bg-white border-y border-gray-100 py-3 px-4">
+                        <div className="flex flex-col min-w-0">
+                          <span className="text-xs font-semibold text-gray-800 truncate">{fl.name}</span>
+                          <span className="text-[10px] text-gray-500">{fl.size}</span>
                         </div>
-                        <a 
-                          href={fl.url} 
+                        <a
+                          href={fl.url}
                           download={fl.name}
                           className="px-3 py-1 bg-[#EBF7F2] hover:bg-[#d8efe5] text-[#076653] rounded text-[10px] font-bold border border-[#076653]/30"
                         >
@@ -796,48 +890,135 @@ export default function ProfileTab({
                 );
               })()}
 
-              {/* Controls Row */}
-              <div className="flex justify-around items-center py-1 text-gray-600 font-semibold text-xs border-b border-gray-50">
-                <button
-                  onClick={() => likePost(post.id)}
-                  className={`flex-1 flex justify-center items-center gap-1.5 py-1.5 hover:bg-[#EBF7F2]/50 rounded ${
-                    post.likedByMe ? 'text-[#076653]' : ''
-                  }`}
-                  id={`like-my-post-btn-${post.id}`}
-                >
-                  <Heart className={`w-4 h-4 ${post.likedByMe ? 'fill-[#076653]' : ''}`} />
-                  <span>Like</span>
-                  <span className="text-[11px] font-bold text-gray-500">({post.likes || 0})</span>
-                </button>
-                <div className="w-[1px] h-4 bg-gray-200"></div>
-                <button
-                  onClick={() => alert("Please open comments from the Home Feed tab to reply.")}
-                  className="flex-1 flex justify-center items-center gap-1.5 py-1.5 hover:bg-gray-100 rounded"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  <span>Comment</span>
-                  <span className="text-[11px] font-bold text-gray-500">({post.comments?.length || 0})</span>
-                </button>
-                <div className="w-[1px] h-4 bg-gray-200"></div>
-                <button
-                  onClick={() => alert("Post shared!")}
-                  className="flex-1 flex justify-center items-center gap-1.5 py-1.5 hover:bg-gray-100 rounded"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span>Share</span>
-                  <span className="text-[11px] font-bold text-gray-500">({post.shares || 0})</span>
-                </button>
-              </div>
-            </article>
-          ))
-        )}
-      </div>
+              {/* 5-Item Post Action Bar: ❤️ Like · 💬 Comment · 🔄 Repost · ↗ Share · 🔖 Save */}
+              <PostActionBar
+                post={post}
+                currentUserId={profile.id || 'user_me'}
+                isLiked={post.likedByMe}
+                likeCount={post.likes || post.likeCount || 0}
+                isPoppingLike={!!poppingLikeIds[post.id]}
+                onLikeClick={() => handleLikeClick(post.id)}
+                onCommentClick={() => {
+                  setOpenCommentsPostIds((prev) => ({ ...prev, [post.id]: !prev[post.id] }));
+                  setTimeout(() => {
+                    const el = document.getElementById(`profile-comment-input-${post.id}`) as HTMLInputElement | null;
+                    el?.focus();
+                  }, 50);
+                }}
+                onInstantRepost={() => handleInstantRepost(post.id)}
+                onUndoRepost={() => handleUndoRepost(post.id)}
+                onOpenQuoteRepostModal={() => setQuoteRepostTarget(post)}
+                onOpenShareHub={(sec) => handleProfileSharePost(post.id, sec)}
+                onToggleSave={() => handleToggleSave(post.id)}
+                onShowToast={showToast}
+              />
 
-      {/* 5. FACEBOOK SETTINGS & PRIVACY OVERLAY DIALOG */}
+              {/* Real Inline Comments & Reply Section on Profile */}
+              {(post.comments.length > 0 || openCommentsPostIds[post.id]) && (
+                <div className="px-3 py-2 bg-gray-50 border-b border-gray-100 flex flex-col gap-2">
+                  {post.comments.map((comment) => (
+                    <div key={comment.id} className="flex gap-2 text-xs items-start">
+                      <img
+                        src={comment.authorAvatar}
+                        alt=""
+                        onClick={() => onViewProfile?.(comment.authorName, comment.authorAvatar, comment.authorId)}
+                        className="w-6 h-6 rounded-full object-cover mt-0.5 border border-gray-200 shrink-0 cursor-pointer"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="bg-white border border-gray-200/80 rounded-xl px-2.5 py-1.5">
+                          <div className="flex justify-between items-center mb-0.5">
+                            <span
+                              onClick={() => onViewProfile?.(comment.authorName, comment.authorAvatar, comment.authorId)}
+                              className="font-bold text-[10px] text-gray-900 cursor-pointer hover:text-[#076653] hover:underline"
+                            >
+                              {comment.authorName}
+                            </span>
+                            <span className="text-[8px] text-gray-400">{comment.timestamp}</span>
+                          </div>
+                          <p className="text-[11px] text-gray-800 leading-normal">
+                            {comment.replyToName && (
+                              <span className="text-[9px] font-bold text-[#076653] bg-[#EBF7F2] px-1.5 py-0.5 rounded mr-1">
+                                @{comment.replyToName}
+                              </span>
+                            )}
+                            {applySensitiveContentAlgorithm(comment.content)}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setReplyingTo({ postId: post.id, commentId: comment.id, authorName: comment.authorName });
+                            setOpenCommentsPostIds((prev) => ({ ...prev, [post.id]: true }));
+                            setTimeout(() => {
+                              const input = document.getElementById(`profile-comment-input-${post.id}`) as HTMLInputElement | null;
+                              input?.focus();
+                            }, 50);
+                          }}
+                          className="text-[9px] text-gray-500 hover:text-[#076653] font-bold mt-0.5 ml-1 cursor-pointer hover:underline"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Inline reply input */}
+                  <div className="pt-1 flex flex-col gap-1">
+                    {replyingTo && replyingTo.postId === post.id && (
+                      <div className="flex items-center justify-between px-2.5 py-1 bg-[#EBF7F2] border border-[#076653]/20 rounded-lg text-[10px] text-[#076653] font-semibold">
+                        <span>Replying to @{replyingTo.authorName}</span>
+                        <button
+                          type="button"
+                          onClick={() => setReplyingTo(null)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex gap-2 items-center">
+                      <img
+                        src={profile.avatar}
+                        alt=""
+                        className="w-6 h-6 rounded-full object-cover border border-gray-200 shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex-1 relative flex items-center">
+                        <input
+                          id={`profile-comment-input-${post.id}`}
+                          type="text"
+                          value={inlineComments[post.id] || ''}
+                          onChange={(e) => setInlineComments({ ...inlineComments, [post.id]: e.target.value })}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') handleProfileCommentSubmit(post.id);
+                          }}
+                          placeholder="Write a reply..."
+                          className="w-full bg-white border border-gray-200 rounded-full px-3 py-1.5 pr-8 text-[11px] focus:outline-none focus:ring-1 focus:ring-[#076653]"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleProfileCommentSubmit(post.id)}
+                          className="absolute right-2 text-gray-400 hover:text-[#076653] p-0.5 cursor-pointer"
+                        >
+                          <Send className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </article>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 5. EDIT PROFILE & SETTINGS MODAL */}
       <AnimatePresence>
         {isEditingDetails && (
-          <div className="fixed inset-0 bg-black/60 z-55 flex items-center justify-center p-3 backdrop-blur-xs">
-            <motion.div 
+          <div className="fixed inset-0 bg-black/60 z-[75] flex items-center justify-center p-3 backdrop-blur-xs">
+            <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.95, opacity: 0 }}
@@ -846,17 +1027,21 @@ export default function ProfileTab({
             >
               {/* Modal Header */}
               <div className="bg-[#076653] text-[#E3EF26] px-4 py-3 flex justify-between items-center sticky top-0 z-10 shadow-xs">
-                <div className="flex items-center gap-2.5">
-                  <div className="p-1.5 bg-white/15 rounded-lg text-[#E3EF26]">
-                    <Settings className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold leading-tight">Settings & Privacy</h3>
-                    <p className="text-[10px] text-emerald-100">Manage account, privacy, security, and app preferences</p>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDetails(false)}
+                    aria-label="Back to Profile"
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-white text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    <ArrowLeft className="w-4 h-4" strokeWidth={1.75} />
+                    <span>Back</span>
+                  </button>
+                  <h3 className="text-sm font-bold leading-tight">Edit Profile & Settings</h3>
                 </div>
-                <button 
+                <button
                   onClick={() => setIsEditingDetails(false)}
+                  aria-label="Close settings"
                   className="text-white/80 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
                   id="close-settings-btn"
                 >
@@ -866,83 +1051,33 @@ export default function ProfileTab({
 
               {/* Settings Navigation Tabs */}
               <div className="bg-slate-50 border-b border-gray-200 p-1.5 flex gap-1 overflow-x-auto scrollbar-none text-xs font-semibold text-gray-600">
-                <button
-                  type="button"
-                  onClick={() => setSettingsTab('account')}
-                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-                    settingsTab === 'account'
-                      ? 'bg-white text-[#076653] font-bold shadow-2xs border border-gray-200'
-                      : 'hover:bg-gray-200/60 text-gray-600'
-                  }`}
-                >
-                  <User className="w-3.5 h-3.5 text-[#076653]" />
-                  <span>Account & Profile</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSettingsTab('privacy')}
-                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-                    settingsTab === 'privacy'
-                      ? 'bg-white text-emerald-700 font-bold shadow-2xs border border-gray-200'
-                      : 'hover:bg-gray-200/60 text-gray-600'
-                  }`}
-                >
-                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Privacy</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSettingsTab('security')}
-                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-                    settingsTab === 'security'
-                      ? 'bg-white text-[#076653] font-bold shadow-2xs border border-gray-200'
-                      : 'hover:bg-gray-200/60 text-gray-600'
-                  }`}
-                >
-                  <Shield className="w-3.5 h-3.5 text-[#076653]" />
-                  <span>Security & Login</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSettingsTab('notifications')}
-                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-                    settingsTab === 'notifications'
-                      ? 'bg-white text-amber-700 font-bold shadow-2xs border border-gray-200'
-                      : 'hover:bg-gray-200/60 text-gray-600'
-                  }`}
-                >
-                  <Bell className="w-3.5 h-3.5 text-amber-600" />
-                  <span>Notifications</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setSettingsTab('media')}
-                  className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
-                    settingsTab === 'media'
-                      ? 'bg-white text-purple-700 font-bold shadow-2xs border border-gray-200'
-                      : 'hover:bg-gray-200/60 text-gray-600'
-                  }`}
-                >
-                  <Sliders className="w-3.5 h-3.5 text-purple-600" />
-                  <span>Preferences</span>
-                </button>
+                {[
+                  { id: 'account', label: 'Profile' },
+                  { id: 'privacy', label: 'Privacy' },
+                  { id: 'security', label: 'Security (Demo)' },
+                  { id: 'notifications', label: 'Notifications' },
+                  { id: 'media', label: 'Preferences' },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSettingsTab(tab.id as any)}
+                    className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-all cursor-pointer ${
+                      settingsTab === tab.id
+                        ? 'bg-white text-[#076653] font-bold shadow-2xs border border-gray-200'
+                        : 'hover:bg-gray-200/60 text-gray-600'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
               </div>
 
               {/* Tab Content Container */}
               <div className="p-4 overflow-y-auto space-y-4 flex-1">
-
                 {/* TAB 1: ACCOUNT & PROFILE */}
                 {settingsTab === 'account' && (
                   <div className="space-y-3.5">
-                    <h4 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide flex items-center gap-1.5 border-b border-gray-150 pb-1.5">
-                      <User className="w-4 h-4 text-[#076653]" />
-                      <span>Account Information & Public Profile</span>
-                    </h4>
-
                     {/* Name */}
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wide">Full Name</label>
@@ -955,20 +1090,32 @@ export default function ProfileTab({
                       />
                     </div>
 
+                    {/* Bio */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wide">Bio</label>
+                      <textarea
+                        value={editedBio}
+                        onChange={(e) => setEditedBio(e.target.value)}
+                        rows={2}
+                        maxLength={150}
+                        className="w-full text-xs text-gray-900 p-2 border border-gray-300 rounded-lg bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#076653] resize-none"
+                        id="bio-textarea-field"
+                      />
+                    </div>
+
                     {/* Profile Photo */}
                     <div className="bg-[#EBF7F2]/60 p-3 rounded-lg border border-[#076653]/30 space-y-2">
                       <div className="flex justify-between items-center">
                         <label className="text-[10px] font-extrabold text-gray-800 uppercase tracking-wide">
-                          Profile Photo <span className="text-[#076653] font-semibold">(PNG / JPG)</span>
+                          Profile Photo
                         </label>
                         <button
                           type="button"
                           onClick={() => avatarInputRef.current?.click()}
-                          className="px-2.5 py-1 bg-white border border-[#076653]/40 text-[#076653] hover:bg-[#EBF7F2] rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                          className="px-2.5 py-1 bg-white border border-[#076653]/40 text-[#076653] hover:bg-[#EBF7F2] rounded-lg text-[10px] font-bold shadow-xs cursor-pointer"
                           id="modal-upload-avatar-btn"
                         >
-                          <ImageIcon className="w-3.5 h-3.5" />
-                          <span>Choose Device File</span>
+                          Choose Device File
                         </button>
                       </div>
                       <input
@@ -990,11 +1137,10 @@ export default function ProfileTab({
                         <button
                           type="button"
                           onClick={() => coverInputRef.current?.click()}
-                          className="px-2.5 py-1 bg-white border border-purple-200 text-purple-700 hover:bg-purple-50 rounded-lg text-[10px] font-bold flex items-center gap-1 shadow-xs cursor-pointer"
+                          className="px-2.5 py-1 bg-white border border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg text-[10px] font-bold shadow-xs cursor-pointer"
                           id="modal-upload-cover-btn"
                         >
-                          <Film className="w-3.5 h-3.5 text-purple-600" />
-                          <span>Choose Device File</span>
+                          Choose Device File
                         </button>
                       </div>
                       <input
@@ -1056,7 +1202,6 @@ export default function ProfileTab({
                         <option value="In a relationship">In a relationship</option>
                         <option value="Married">Married</option>
                         <option value="Engaged">Engaged</option>
-                        <option value="It's complicated">It's complicated</option>
                       </select>
                     </div>
                   </div>
@@ -1065,12 +1210,6 @@ export default function ProfileTab({
                 {/* TAB 2: PRIVACY */}
                 {settingsTab === 'privacy' && (
                   <div className="space-y-4">
-                    <h4 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide flex items-center gap-1.5 border-b border-gray-150 pb-1.5">
-                      <Lock className="w-4 h-4 text-emerald-600" />
-                      <span>Privacy & Audience Controls</span>
-                    </h4>
-
-                    {/* Default Post Privacy */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between gap-3">
                       <div>
                         <span className="text-xs font-bold text-gray-900 block">Default Post Audience</span>
@@ -1081,13 +1220,12 @@ export default function ProfileTab({
                         onChange={(e) => setPostPrivacy(e.target.value as any)}
                         className="text-xs font-bold p-1.5 border border-gray-300 rounded bg-white text-gray-800"
                       >
-                        <option value="Public">🌐 Public</option>
-                        <option value="Friends">👥 Friends</option>
-                        <option value="Only Me">🔒 Only Me</option>
+                        <option value="Public">Public</option>
+                        <option value="Friends">Friends</option>
+                        <option value="Only Me">Only Me</option>
                       </select>
                     </div>
 
-                    {/* Profile Details Audience */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between gap-3">
                       <div>
                         <span className="text-xs font-bold text-gray-900 block">Profile Details Visibility</span>
@@ -1098,20 +1236,16 @@ export default function ProfileTab({
                         onChange={(e) => setProfileDetailsPrivacy(e.target.value as any)}
                         className="text-xs font-bold p-1.5 border border-gray-300 rounded bg-white text-gray-800"
                       >
-                        <option value="Public">🌐 Public</option>
-                        <option value="Friends">👥 Friends Only</option>
-                        <option value="Only Me">🔒 Only Me</option>
+                        <option value="Public">Public</option>
+                        <option value="Friends">Friends Only</option>
+                        <option value="Only Me">Only Me</option>
                       </select>
                     </div>
 
-                    {/* Profile Locking */}
                     <div className="bg-emerald-50/60 p-3 rounded-lg border border-emerald-200 flex items-center justify-between gap-3">
-                      <div className="flex items-start gap-2.5">
-                        <Lock className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-emerald-950 block">Profile Locking</span>
-                          <span className="text-[10px] text-emerald-800">Only friends can see full cover photos, posts, and stories on your profile.</span>
-                        </div>
+                      <div>
+                        <span className="text-xs font-bold text-emerald-950 block">Profile Locking</span>
+                        <span className="text-[10px] text-emerald-800">Only friends can see full cover photos and posts on your profile.</span>
                       </div>
                       <button
                         type="button"
@@ -1124,14 +1258,10 @@ export default function ProfileTab({
                       </button>
                     </div>
 
-                    {/* Search Engine Indexing */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between gap-3">
-                      <div className="flex items-start gap-2.5">
-                        <Globe className="w-4 h-4 text-[#076653] shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-gray-900 block">External Search Engine Indexing</span>
-                          <span className="text-[10px] text-gray-500">Allow Google and other search engines to link to your profile.</span>
-                        </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 block">External Search Engine Indexing</span>
+                        <span className="text-[10px] text-gray-500">Allow search engines to link to your profile.</span>
                       </div>
                       <button
                         type="button"
@@ -1146,15 +1276,13 @@ export default function ProfileTab({
                   </div>
                 )}
 
-                {/* TAB 3: SECURITY & LOGIN */}
+                {/* TAB 3: SECURITY & LOGIN (Clearly labeled Demo (not connected)) */}
                 {settingsTab === 'security' && (
                   <div className="space-y-4">
-                    <h4 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide flex items-center gap-1.5 border-b border-gray-150 pb-1.5">
-                      <Shield className="w-4 h-4 text-[#076653]" />
-                      <span>Security, Password & Active Logins</span>
-                    </h4>
+                    <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-[11px] text-amber-900 font-medium">
+                      Account authentication is running in local preview mode. Password and session controls below are labeled <strong>Demo (not connected)</strong>.
+                    </div>
 
-                    {/* Account Email */}
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-gray-600 uppercase tracking-wide">Account Email Address</label>
                       <input
@@ -1165,15 +1293,17 @@ export default function ProfileTab({
                       />
                     </div>
 
-                    {/* Password Change Form */}
-                    <form onSubmit={handlePasswordChangeSubmit} className="bg-[#EBF7F2]/60 p-3.5 rounded-lg border border-[#076653]/30 space-y-2.5">
-                      <span className="text-xs font-bold text-[#076653] flex items-center gap-1.5">
-                        <Key className="w-3.5 h-3.5 text-[#076653]" />
-                        <span>Change Password</span>
-                      </span>
+                    {/* Password Change Form - Demo (not connected) */}
+                    <form onSubmit={handlePasswordChangeSubmit} className="bg-gray-50 p-3.5 rounded-lg border border-gray-200 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-gray-800">Change Password</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                          Demo (not connected)
+                        </span>
+                      </div>
 
                       {passwordStatusMsg && (
-                        <div className={`p-2 rounded text-[11px] font-bold ${passwordStatusMsg.includes('successfully') ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
+                        <div className="p-2 rounded text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200">
                           {passwordStatusMsg}
                         </div>
                       )}
@@ -1188,14 +1318,14 @@ export default function ProfileTab({
                       <div className="grid grid-cols-2 gap-2">
                         <input
                           type="password"
-                          placeholder="New Password (min 6 chars)"
+                          placeholder="New Password"
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           className="w-full text-xs p-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#076653]"
                         />
                         <input
                           type="password"
-                          placeholder="Confirm New Password"
+                          placeholder="Confirm Password"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           className="w-full text-xs p-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-[#076653]"
@@ -1203,20 +1333,17 @@ export default function ProfileTab({
                       </div>
                       <button
                         type="submit"
-                        className="px-3 py-1.5 bg-[#076653] hover:bg-[#065042] text-[#E3EF26] text-xs font-bold rounded shadow-2xs cursor-pointer"
+                        className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 text-xs font-bold rounded cursor-pointer"
                       >
-                        Update Password
+                        Change Password — Demo (not connected)
                       </button>
                     </form>
 
                     {/* 2FA Toggle */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between gap-3">
-                      <div className="flex items-start gap-2.5">
-                        <Smartphone className="w-4 h-4 text-[#076653] shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-gray-900 block">Two-Factor Authentication (2FA)</span>
-                          <span className="text-[10px] text-gray-500">Require an authenticator app code on unrecognized logins.</span>
-                        </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 block">Two-Factor Authentication (2FA)</span>
+                        <span className="text-[10px] text-gray-500">Demo setting</span>
                       </div>
                       <button
                         type="button"
@@ -1233,30 +1360,25 @@ export default function ProfileTab({
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">Where You're Logged In</span>
-                        {activeSessions.length > 1 && (
-                          <button
-                            type="button"
-                            onClick={handleLogoutOtherSessions}
-                            className="text-[10px] font-bold text-red-600 hover:underline cursor-pointer"
-                          >
-                            Log Out All Other Sessions
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={handleLogoutOtherSessions}
+                          className="text-[10px] font-bold text-amber-800 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded border border-amber-200 cursor-pointer"
+                        >
+                          Log Out All Other Sessions — Demo (not connected)
+                        </button>
                       </div>
                       <div className="space-y-1.5">
                         {activeSessions.map((sess) => (
                           <div key={sess.id} className="p-2.5 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2.5">
-                              <Monitor className="w-4 h-4 text-gray-500 shrink-0" />
-                              <div className="flex flex-col">
-                                <span className="font-bold text-gray-900">{sess.device}</span>
-                                <span className="text-[10px] text-gray-500">{sess.location} • {sess.time}</span>
-                              </div>
+                            <div className="flex flex-col">
+                              <span className="font-bold text-gray-900">{sess.device}</span>
+                              <span className="text-[10px] text-gray-500">{sess.location} • {sess.time}</span>
                             </div>
                             {sess.current ? (
                               <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold text-[10px] rounded-full">This Device</span>
                             ) : (
-                              <span className="text-[10px] text-gray-400">Active</span>
+                              <span className="text-[10px] text-gray-400">Sample Session</span>
                             )}
                           </div>
                         ))}
@@ -1268,12 +1390,6 @@ export default function ProfileTab({
                 {/* TAB 4: NOTIFICATIONS */}
                 {settingsTab === 'notifications' && (
                   <div className="space-y-3.5">
-                    <h4 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide flex items-center gap-1.5 border-b border-gray-150 pb-1.5">
-                      <Bell className="w-4 h-4 text-amber-600" />
-                      <span>Notification Preferences</span>
-                    </h4>
-
-                    {/* Comments & Reactions */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
                       <div>
                         <span className="text-xs font-bold text-gray-900 block">Comments & Reactions Alerts</span>
@@ -1283,14 +1399,13 @@ export default function ProfileTab({
                         type="button"
                         onClick={() => setNotifyComments(!notifyComments)}
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                          notifyComments ? 'bg-amber-600 justify-end' : 'bg-gray-300 justify-start'
+                          notifyComments ? 'bg-[#076653] justify-end' : 'bg-gray-300 justify-start'
                         }`}
                       >
                         <span className="w-4 h-4 rounded-full bg-white shadow-md"></span>
                       </button>
                     </div>
 
-                    {/* Tagging Alerts */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
                       <div>
                         <span className="text-xs font-bold text-gray-900 block">Tagging & Mentions</span>
@@ -1307,7 +1422,6 @@ export default function ProfileTab({
                       </select>
                     </div>
 
-                    {/* Friend Requests */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
                       <div>
                         <span className="text-xs font-bold text-gray-900 block">Friend Requests Alerts</span>
@@ -1317,24 +1431,23 @@ export default function ProfileTab({
                         type="button"
                         onClick={() => setNotifyFriendRequests(!notifyFriendRequests)}
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                          notifyFriendRequests ? 'bg-amber-600 justify-end' : 'bg-gray-300 justify-start'
+                          notifyFriendRequests ? 'bg-[#076653] justify-end' : 'bg-gray-300 justify-start'
                         }`}
                       >
                         <span className="w-4 h-4 rounded-full bg-white shadow-md"></span>
                       </button>
                     </div>
 
-                    {/* Page & Group Updates */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
                       <div>
                         <span className="text-xs font-bold text-gray-900 block">Pages & Groups Activity</span>
-                        <span className="text-[10px] text-gray-500">Alerts from Bissho Barta Pages and Groups you created/joined</span>
+                        <span className="text-[10px] text-gray-500">Alerts from Bissho Barta Pages and Groups</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setNotifyPageGroups(!notifyPageGroups)}
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                          notifyPageGroups ? 'bg-amber-600 justify-end' : 'bg-gray-300 justify-start'
+                          notifyPageGroups ? 'bg-[#076653] justify-end' : 'bg-gray-300 justify-start'
                         }`}
                       >
                         <span className="w-4 h-4 rounded-full bg-white shadow-md"></span>
@@ -1343,22 +1456,53 @@ export default function ProfileTab({
                   </div>
                 )}
 
-                {/* TAB 5: PREFERENCES & MEDIA */}
+                {/* TAB 5: PREFERENCES & MEDIA (Includes Feed Content Preference & Video Resolution) */}
                 {settingsTab === 'media' && (
                   <div className="space-y-3.5">
-                    <h4 className="text-xs font-extrabold text-gray-900 uppercase tracking-wide flex items-center gap-1.5 border-b border-gray-150 pb-1.5">
-                      <Sliders className="w-4 h-4 text-purple-600" />
-                      <span>App Preferences & Media Playback</span>
-                    </h4>
-
-                    {/* Video Autoplay */}
+                    {/* Home Feed Content Preference */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
-                      <div className="flex items-start gap-2.5">
-                        <Wifi className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-gray-900 block">Video Autoplay Mode</span>
-                          <span className="text-[10px] text-gray-500">Choose when feed videos start playing automatically</span>
-                        </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 block">Home Feed Preference</span>
+                        <span className="text-[10px] text-gray-500">Choose between algorithmic For you or Following Feeds</span>
+                      </div>
+                      <select
+                        value={feedPreference}
+                        onChange={(e) => {
+                          const next = e.target.value as 'For you' | 'Following';
+                          setFeedPreference(next);
+                          updateFeedPreferenceState(next);
+                        }}
+                        className="text-xs font-bold p-1.5 border border-gray-300 rounded bg-white text-gray-800"
+                      >
+                        <option value="For you">For You</option>
+                        <option value="Following">Following</option>
+                      </select>
+                    </div>
+
+                    {/* Video Quality Resolution Setting (Kept inside Settings only) */}
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 block">Video Resolution</span>
+                        <span className="text-[10px] text-gray-500">Default playback and upload quality</span>
+                      </div>
+                      <select
+                        value={videoResolution}
+                        onChange={(e) => {
+                          const next = e.target.value as VideoResolutionSetting;
+                          setVideoResolution(next);
+                          setStoredVideoResolution(next);
+                        }}
+                        className="text-xs font-bold p-1.5 border border-gray-300 rounded bg-white text-gray-800"
+                      >
+                        <option value="720p">720p</option>
+                        <option value="480p">480p</option>
+                      </select>
+                    </div>
+
+                    <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 block">Video Autoplay Mode</span>
+                        <span className="text-[10px] text-gray-500">Choose when feed videos start playing automatically</span>
                       </div>
                       <select
                         value={videoAutoplay}
@@ -1371,27 +1515,22 @@ export default function ProfileTab({
                       </select>
                     </div>
 
-                    {/* In-App Sound Effects */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
-                      <div className="flex items-start gap-2.5">
-                        <Volume2 className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                        <div>
-                          <span className="text-xs font-bold text-gray-900 block">In-App Sound Effects</span>
-                          <span className="text-[10px] text-gray-500">Play sounds when liking posts or sending messages</span>
-                        </div>
+                      <div>
+                        <span className="text-xs font-bold text-gray-900 block">In-App Sound Effects</span>
+                        <span className="text-[10px] text-gray-500">Play sounds when liking posts or sending messages</span>
                       </div>
                       <button
                         type="button"
                         onClick={() => setInAppSounds(!inAppSounds)}
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                          inAppSounds ? 'bg-purple-600 justify-end' : 'bg-gray-300 justify-start'
+                          inAppSounds ? 'bg-[#076653] justify-end' : 'bg-gray-300 justify-start'
                         }`}
                       >
                         <span className="w-4 h-4 rounded-full bg-white shadow-md"></span>
                       </button>
                     </div>
 
-                    {/* Data Saver Mode */}
                     <div className="bg-gray-50 p-3 rounded-lg border border-gray-200 flex items-center justify-between">
                       <div>
                         <span className="text-xs font-bold text-gray-900 block">Data Saver Mode</span>
@@ -1401,7 +1540,7 @@ export default function ProfileTab({
                         type="button"
                         onClick={() => setDataSaver(!dataSaver)}
                         className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-colors ${
-                          dataSaver ? 'bg-purple-600 justify-end' : 'bg-gray-300 justify-start'
+                          dataSaver ? 'bg-[#076653] justify-end' : 'bg-gray-300 justify-start'
                         }`}
                       >
                         <span className="w-4 h-4 rounded-full bg-white shadow-md"></span>
@@ -1411,7 +1550,7 @@ export default function ProfileTab({
                 )}
               </div>
 
-              {/* Modal Footer / Action Bar */}
+              {/* Modal Footer */}
               <div className="bg-gray-50 p-3.5 border-t border-gray-200 flex gap-2 justify-end sticky bottom-0 z-10">
                 <button
                   type="button"
@@ -1424,11 +1563,10 @@ export default function ProfileTab({
                 <button
                   type="button"
                   onClick={handleSaveSettings}
-                  className="px-5 py-1.5 text-xs font-bold rounded-lg text-[#076653] bg-[#E3EF26] hover:bg-[#d5e022] shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all"
+                  className="px-5 py-1.5 text-xs font-bold rounded-lg text-[#076653] bg-[#E3EF26] hover:bg-[#d5e022] shadow-xs cursor-pointer active:scale-95 transition-all"
                   id="edit-profile-save"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>Save Settings</span>
+                  Save Changes
                 </button>
               </div>
             </motion.div>
@@ -1445,14 +1583,9 @@ export default function ProfileTab({
               className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[85vh] border border-gray-200"
             >
               <div className="p-3.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-[#EBF7F2] text-[#076653] rounded-full">
-                    <UserCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900">Following ({followingCount})</h3>
-                    <p className="text-[10px] text-gray-500">People and accounts you follow</p>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Following ({followingCount})</h3>
+                  <p className="text-[10px] text-gray-500">People and accounts you follow</p>
                 </div>
                 <button
                   onClick={() => setShowFollowingModal(false)}
@@ -1462,30 +1595,31 @@ export default function ProfileTab({
                 </button>
               </div>
 
-              {/* Search Bar */}
               <div className="p-3 bg-white border-b border-gray-100">
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-2.5" />
-                  <input
-                    type="text"
-                    value={followingSearch}
-                    onChange={(e) => setFollowingSearch(e.target.value)}
-                    placeholder="Search following..."
-                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#076653]"
-                  />
-                </div>
+                <input
+                  type="text"
+                  value={followingSearch}
+                  onChange={(e) => setFollowingSearch(e.target.value)}
+                  placeholder="Search following..."
+                  className="w-full px-3 py-1.5 text-xs border border-gray-200 rounded-lg bg-gray-50 focus:outline-none focus:bg-white focus:ring-1 focus:ring-[#076653]"
+                />
               </div>
 
-              {/* Following List */}
               <div className="p-3 overflow-y-auto space-y-2 flex-1 divide-y divide-gray-100">
                 {followingList
                   .filter(item => item.name.toLowerCase().includes(followingSearch.toLowerCase()) || item.role.toLowerCase().includes(followingSearch.toLowerCase()))
                   .map(item => (
                     <div key={item.id} className="pt-2 first:pt-0 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <img src={item.avatar} alt={item.name} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
+                      <div
+                        onClick={() => {
+                          setShowFollowingModal(false);
+                          onViewProfile?.(item.name, item.avatar, item.id);
+                        }}
+                        className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+                      >
+                        <img src={item.avatar} alt={item.name} className="w-10 h-10 rounded-full object-cover border border-gray-200 group-hover:ring-2 group-hover:ring-[#076653] transition-all" />
                         <div className="min-w-0 flex flex-col">
-                          <span className="text-xs font-bold text-gray-900 truncate">{item.name}</span>
+                          <span className="text-xs font-bold text-gray-900 group-hover:text-[#076653] group-hover:underline truncate">{item.name}</span>
                           <span className="text-[10px] text-gray-500 truncate">{item.role}</span>
                         </div>
                       </div>
@@ -1525,14 +1659,9 @@ export default function ProfileTab({
               className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden flex flex-col max-h-[85vh] border border-gray-200"
             >
               <div className="p-3.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-purple-100 text-purple-700 rounded-full">
-                    <Users className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900">Followers ({followersCount})</h3>
-                    <p className="text-[10px] text-gray-500">People following your updates</p>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Followers ({followersCount})</h3>
+                  <p className="text-[10px] text-gray-500">People following your updates</p>
                 </div>
                 <button
                   onClick={() => setShowFollowersModal(false)}
@@ -1542,14 +1671,19 @@ export default function ProfileTab({
                 </button>
               </div>
 
-              {/* Followers List */}
               <div className="p-3 overflow-y-auto space-y-2.5 flex-1 divide-y divide-gray-100">
                 {followersList.map(item => (
                   <div key={item.id} className="pt-2.5 first:pt-0 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <img src={item.avatar} alt={item.name} className="w-10 h-10 rounded-full object-cover border border-gray-200" />
+                    <div
+                      onClick={() => {
+                        setShowFollowersModal(false);
+                        onViewProfile?.(item.name, item.avatar, item.id);
+                      }}
+                      className="flex items-center gap-2.5 min-w-0 cursor-pointer group"
+                    >
+                      <img src={item.avatar} alt={item.name} className="w-10 h-10 rounded-full object-cover border border-gray-200 group-hover:ring-2 group-hover:ring-[#076653] transition-all" />
                       <div className="min-w-0 flex flex-col">
-                        <span className="text-xs font-bold text-gray-900 truncate">{item.name}</span>
+                        <span className="text-xs font-bold text-gray-900 group-hover:text-[#076653] group-hover:underline truncate">{item.name}</span>
                         <span className="text-[10px] text-gray-500 truncate">{item.role}</span>
                       </div>
                     </div>
@@ -1558,8 +1692,8 @@ export default function ProfileTab({
                         onClick={() => handleToggleFollowerBack(item.id)}
                         className={`px-2.5 py-1 rounded-full text-[10px] font-bold transition-all cursor-pointer ${
                           item.isFollowing
-                            ? 'bg-purple-50 text-purple-700 border border-purple-200'
-                            : 'bg-purple-600 hover:bg-purple-700 text-white shadow-xs'
+                            ? 'bg-[#EBF7F2] text-[#076653] border border-[#076653]/30'
+                            : 'bg-[#076653] hover:bg-[#065042] text-[#E3EF26] shadow-xs'
                         }`}
                       >
                         {item.isFollowing ? 'Friends' : 'Follow Back'}
@@ -1579,7 +1713,7 @@ export default function ProfileTab({
               <div className="p-3 bg-gray-50 border-t border-gray-200 flex justify-end">
                 <button
                   onClick={() => setShowFollowersModal(false)}
-                  className="px-4 py-1.5 bg-purple-600 text-white text-xs font-bold rounded-lg hover:bg-purple-700 cursor-pointer"
+                  className="px-4 py-1.5 bg-[#076653] text-[#E3EF26] text-xs font-bold rounded-lg hover:bg-[#065042] cursor-pointer"
                 >
                   Done
                 </button>
@@ -1597,16 +1731,10 @@ export default function ProfileTab({
               exit={{ opacity: 0, scale: 0.95 }}
               className="bg-white rounded-xl shadow-2xl max-w-lg w-full overflow-hidden flex flex-col max-h-[88vh] border border-gray-200"
             >
-              {/* Header */}
               <div className="p-3.5 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-emerald-100 text-emerald-700 rounded-full">
-                    <Flag className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-gray-900">Bissho Barta Pages</h3>
-                    <p className="text-[10px] text-gray-500">Manage pages you created or build a new one</p>
-                  </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900">Bissho Barta Pages</h3>
+                  <p className="text-[10px] text-gray-500">Manage pages you created or build a new one</p>
                 </div>
                 <button
                   onClick={() => {
@@ -1620,46 +1748,37 @@ export default function ProfileTab({
               </div>
 
               <div className="p-4 overflow-y-auto space-y-4 flex-1">
-                {/* Status Indicator Banner */}
-                {userPages.length > 0 ? (
-                  <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-lg flex items-start gap-2.5">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                    <div className="text-xs text-emerald-900">
-                      <p className="font-bold">You have created {userPages.length} Bissho Barta {userPages.length === 1 ? 'Page' : 'Pages'}!</p>
-                      <p className="text-[11px] text-emerald-700 mt-0.5">Your page is active and visible to followers.</p>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex items-start gap-2.5">
-                    <Flag className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                    <div className="text-xs text-amber-900">
-                      <p className="font-bold">No Pages Created Yet</p>
-                      <p className="text-[11px] text-amber-700 mt-0.5">You haven't created any Bissho Barta Pages. Create a Page to grow your brand, project, or business!</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Created Pages List */}
                 {userPages.length > 0 && !isCreatingPage && (
                   <div className="space-y-2">
                     <h4 className="text-xs font-bold text-gray-700 uppercase tracking-wide">Your Pages</h4>
                     <div className="space-y-2">
                       {userPages.map(page => (
-                        <div key={page.id} className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between gap-3 hover:bg-gray-100/80 transition-colors">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <img src={page.avatar || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&h=150&q=80"} alt={page.name} className="w-11 h-11 rounded-lg object-cover border border-gray-200 shadow-xs" />
+                        <div key={page.id} className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex items-center justify-between gap-3">
+                          <div
+                            onClick={() => {
+                              setShowPagesModal(false);
+                              setIsCreatingPage(false);
+                              onViewProfile?.(
+                                page.name,
+                                page.avatar || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&h=150&q=80",
+                                page.id
+                              );
+                            }}
+                            className="flex items-center gap-3 min-w-0 cursor-pointer group flex-1"
+                          >
+                            <img src={page.avatar || "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=150&h=150&q=80"} alt={page.name} className="w-11 h-11 rounded-lg object-cover border border-gray-200 shadow-xs group-hover:ring-2 group-hover:ring-[#076653] transition-all" />
                             <div className="flex flex-col min-w-0">
-                              <span className="text-xs font-bold text-gray-900 truncate">{page.name}</span>
+                              <span className="text-xs font-bold text-gray-900 group-hover:text-[#076653] group-hover:underline truncate">{page.name}</span>
                               <span className="text-[10px] text-emerald-700 font-semibold">{page.category} • {page.followersCount} Followers</span>
                               {page.bio && <span className="text-[10px] text-gray-500 truncate mt-0.5">{page.bio}</span>}
                             </div>
                           </div>
                           <button
                             onClick={() => handleDeletePage(page.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer text-xs font-bold"
                             title="Delete Page"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       ))}
@@ -1667,23 +1786,17 @@ export default function ProfileTab({
                   </div>
                 )}
 
-                {/* Create New Page Button / Toggle */}
                 {!isCreatingPage ? (
                   <button
                     onClick={() => setIsCreatingPage(true)}
                     className="w-full py-2.5 border-2 border-dashed border-emerald-300 bg-emerald-50/50 hover:bg-emerald-50 text-emerald-800 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer"
                   >
-                    <Plus className="w-4 h-4 text-emerald-600" />
-                    <span>Create a New Bissho Barta Page</span>
+                    <span>+ Create a New Bissho Barta Page</span>
                   </button>
                 ) : (
-                  /* Create Page Form */
                   <form onSubmit={handleCreatePageSubmit} className="bg-gray-50 p-3.5 border border-emerald-200 rounded-lg space-y-3">
                     <div className="flex justify-between items-center border-b border-gray-200 pb-2">
-                      <span className="text-xs font-bold text-gray-900 flex items-center gap-1.5">
-                        <Building className="w-4 h-4 text-emerald-600" />
-                        <span>Create Bissho Barta Page</span>
-                      </span>
+                      <span className="text-xs font-bold text-gray-900">Create Bissho Barta Page</span>
                       <button
                         type="button"
                         onClick={() => setIsCreatingPage(false)}
@@ -1700,7 +1813,7 @@ export default function ProfileTab({
                         required
                         value={newPageName}
                         onChange={(e) => setNewPageName(e.target.value)}
-                        placeholder="e.g. My Digital Studio or Tech Hub"
+                        placeholder="e.g. Dhaka Digital Studio"
                         className="w-full text-xs p-2 border border-gray-300 rounded bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
                       />
                     </div>
@@ -1741,7 +1854,7 @@ export default function ProfileTab({
                       </button>
                       <button
                         type="submit"
-                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-xs"
+                        className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded shadow-xs cursor-pointer"
                       >
                         Create Page
                       </button>
@@ -1756,7 +1869,7 @@ export default function ProfileTab({
                     setShowPagesModal(false);
                     setIsCreatingPage(false);
                   }}
-                  className="px-4 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 cursor-pointer"
+                  className="px-4 py-1.5 bg-[#076653] text-[#E3EF26] text-xs font-bold rounded-lg hover:bg-[#065042] cursor-pointer"
                 >
                   Done
                 </button>
@@ -1765,6 +1878,27 @@ export default function ProfileTab({
           </div>
         )}
       </AnimatePresence>
+
+      {/* Share Hub Modal */}
+      <ShareHubModal
+        isOpen={!!shareHubTarget}
+        onClose={() => setShareHubTarget(null)}
+        post={shareHubTarget}
+        friends={friends}
+        initialSection={shareHubSection}
+        onShareComplete={handleCompleteShare}
+        onShowToast={showToast}
+      />
+
+      {/* Quote Repost Modal */}
+      <QuoteRepostModal
+        isOpen={!!quoteRepostTarget}
+        onClose={() => setQuoteRepostTarget(null)}
+        post={quoteRepostTarget}
+        profile={profile}
+        onSubmitQuoteRepost={handleQuoteRepostSubmit}
+        onShowToast={showToast}
+      />
     </div>
   );
 }

@@ -1,25 +1,26 @@
 import { Post, Story, Friend, Conversation, Notification, UserProfile } from '../types';
 
 export const defaultUserProfile: UserProfile = {
-  name: "Alex Rivera",
+  id: "user_me",
+  name: "Arif Rahman",
   avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&h=150&q=80",
   coverPhoto: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&h=300&q=80",
-  bio: "Simplicity is the ultimate sophistication. Building fast web applications. 💻✨",
-  location: "San Francisco, CA",
-  work: "Software Engineer at TechCorp",
-  education: "Stanford University",
-  relationship: "In a relationship",
+  bio: "Building fast web applications and sharing local updates.",
+  location: "Dhaka, Bangladesh",
+  work: "Software Engineer at Dhaka Tech Lab",
+  education: "University of Dhaka",
+  relationship: "Single",
   followingCount: 184,
   followersCount: 1250,
   pages: [
     {
       id: "page-1",
-      name: "Tech Trends & Code",
+      name: "Dhaka Tech & Code",
       category: "Science & Technology",
       avatar: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=150&h=150&q=80",
       followersCount: 3420,
       createdAt: "2024",
-      bio: "Official page for latest Tech Trends, web dev tips, and AI code breakdowns."
+      bio: "Official page for Bangladesh tech news, web dev tips, and software engineering."
     }
   ]
 };
@@ -27,7 +28,7 @@ export const defaultUserProfile: UserProfile = {
 export const initialFriends: Friend[] = [
   {
     id: "1",
-    name: "Sarah Jenkins",
+    name: "Nusrat Jahan",
     avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
     mutualFriends: 12,
     status: "friend",
@@ -35,7 +36,7 @@ export const initialFriends: Friend[] = [
   },
   {
     id: "2",
-    name: "David Chen",
+    name: "Kamrul Hasan",
     avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
     mutualFriends: 5,
     status: "friend",
@@ -43,7 +44,7 @@ export const initialFriends: Friend[] = [
   },
   {
     id: "3",
-    name: "Emily Rodriguez",
+    name: "Sadia Islam",
     avatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&h=150&q=80",
     mutualFriends: 8,
     status: "pending_incoming",
@@ -51,7 +52,7 @@ export const initialFriends: Friend[] = [
   },
   {
     id: "4",
-    name: "Michael Chang",
+    name: "Mahmudul Haque",
     avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80",
     mutualFriends: 15,
     status: "pending_incoming",
@@ -59,7 +60,7 @@ export const initialFriends: Friend[] = [
   },
   {
     id: "5",
-    name: "Jessica Taylor",
+    name: "Farhana Yasmin",
     avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&h=150&q=80",
     mutualFriends: 3,
     status: "none",
@@ -67,7 +68,7 @@ export const initialFriends: Friend[] = [
   },
   {
     id: "6",
-    name: "Marcus Aurelius",
+    name: "Rafiqul Islam",
     avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&h=150&q=80",
     mutualFriends: 1,
     status: "none",
@@ -78,21 +79,24 @@ export const initialFriends: Friend[] = [
 export const initialStories: Story[] = [
   {
     id: "s1",
-    userName: "Sarah Jenkins",
+    userId: "1",
+    userName: "Nusrat Jahan",
     userAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
     storyImage: "https://images.unsplash.com/photo-1513836279014-a89f7a76ae86?auto=format&fit=crop&w=300&h=500&q=80",
     isUnread: true
   },
   {
     id: "s2",
-    userName: "David Chen",
+    userId: "2",
+    userName: "Kamrul Hasan",
     userAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
     storyImage: "https://images.unsplash.com/photo-1469474968028-56623f02e42e?auto=format&fit=crop&w=300&h=500&q=80",
     isUnread: true
   },
   {
     id: "s3",
-    userName: "Michael Chang",
+    userId: "4",
+    userName: "Mahmudul Haque",
     userAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80",
     storyImage: "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=300&h=500&q=80",
     isUnread: false
@@ -102,47 +106,54 @@ export const initialStories: Story[] = [
 export const initialPosts: Post[] = [
   {
     id: "p1",
-    authorName: "Sarah Jenkins",
+    authorId: "1",
+    authorName: "Nusrat Jahan",
     authorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "2 hours ago",
-    content: "Hiking through the beautiful redwoods today! Nature always has a way of resetting your perspective. 🌲✨ If anyone is looking for trail recommendations around the Bay Area, let me know!",
+    content: "Morning walk through the green tea gardens in Sylhet today! Nature always has a way of resetting your perspective. If anyone is looking for travel recommendations around Sylhet, let me know!",
     image: "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 42,
     likedByMe: false,
     shares: 3,
+    postType: "Public",
     comments: [
       {
         id: "c1",
-        authorName: "David Chen",
+        authorId: "2",
+        authorName: "Kamrul Hasan",
         authorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "This looks absolutely breathtaking, Sarah! Which trail is this?",
+        content: "This looks peaceful, Nusrat! Which estate is this?",
         timestamp: "1 hour ago"
       },
       {
         id: "c2",
-        authorName: "Sarah Jenkins",
+        authorId: "1",
+        authorName: "Nusrat Jahan",
         authorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "@David Chen It's the Redwood Creek Trail in Muir Woods. Go early to avoid the crowds!",
+        content: "@Kamrul Hasan It's near Sreemangal. Go early in the morning for the mist!",
         timestamp: "45 mins ago"
       }
     ]
   },
   {
     id: "p2",
-    authorName: "David Chen",
+    authorId: "2",
+    authorName: "Kamrul Hasan",
     authorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "4 hours ago",
-    content: "Just launched my first small indie game project! It's a retro-style pixel puzzle solver. Would love some feedback from everyone. Check it out! 🎮👾",
+    content: "Just launched my first indie puzzle project! It's a retro-style pixel puzzle solver built over the weekend in Dhaka. Would love some feedback from everyone.",
     image: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 88,
     likedByMe: true,
     shares: 14,
+    postType: "Public",
     comments: [
       {
         id: "c3",
-        authorName: "Sarah Jenkins",
+        authorId: "1",
+        authorName: "Nusrat Jahan",
         authorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "OMG! Congratulations David! The graphics look amazing, playing it right now!",
+        content: "Congratulations Kamrul! The design looks great, trying it right now.",
         timestamp: "3 hours ago"
       }
     ]
@@ -151,96 +162,127 @@ export const initialPosts: Post[] = [
     id: "p3",
     authorName: "Tech News Daily",
     authorAvatar: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=150&h=150&q=80",
-    timestamp: "Yesterday at 3:15 PM",
-    content: "Breaking: Researchers introduce new, high-efficiency lightweight models that can run locally on mobile devices without needing internet connectivity. A massive win for lightweight applications and remote accessibility! 📱🚀 #TechNews #MobileDev #AI",
-    likes: 245,
+    timestamp: "Today at 1:30 PM",
+    content: "Researchers introduce new high-efficiency lightweight models that run locally on mobile devices with low bandwidth. A great step forward for lightweight applications and regional accessibility! #TechNews #MobileDev",
+    likes: 645,
     likedByMe: false,
-    shares: 45,
+    shares: 145,
     comments: [
       {
         id: "c4",
-        authorName: "Marcus Aurelius",
+        authorName: "Rafiqul Islam",
         authorAvatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=150&h=150&q=80",
         content: "This is the way forward. Local execution preserves user privacy and respects resource limits.",
-        timestamp: "Yesterday at 4:30 PM"
+        timestamp: "2 hours ago"
       }
     ]
   },
   {
     id: "p4",
-    authorName: "Food Explorers",
+    authorName: "Food Explorers BD",
     authorAvatar: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=150&h=150&q=80",
-    timestamp: "July 18 at 11:24 AM",
-    content: "Who is up for some authentic wood-fired artisanal pizza? Look at this perfect crust and bubbling fresh mozzarella! 🍕🤤 Tag a friend you'd share this with!",
+    timestamp: "Today at 11:20 AM",
+    content: "Evening snacks and wood-fired flatbread fresh from the oven in Dhanmondi! Tag a friend you'd share this with. #DhakaFood #StreetBites",
     image: "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=800&h=500&q=80",
-    likes: 512,
+    likes: 980,
     likedByMe: false,
-    shares: 120,
+    shares: 260,
     comments: [
       {
         id: "c5",
-        authorName: "Jessica Taylor",
+        authorName: "Farhana Yasmin",
         authorAvatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "That cheese pull is unreal! Where is this place located?",
-        timestamp: "July 18 at 12:10 PM"
+        content: "Looks delicious! Which road in Dhanmondi is this place located?",
+        timestamp: "3 hours ago"
       }
     ]
   },
   {
+    id: "p7",
+    authorName: "Dhaka Traffic & Metro Live",
+    authorAvatar: "https://images.unsplash.com/photo-1570125909232-eb263c188f7e?auto=format&fit=crop&w=150&h=150&q=80",
+    timestamp: "1 hour ago",
+    content: "Viral update: Dhaka Metro Rail experimental evening schedule starts this weekend! Commute times drop by 60% across major commercial hubs. #DhakaMetro #Bangladesh #Trending",
+    image: "https://images.unsplash.com/photo-1517649763962-0c623266ddc0?auto=format&fit=crop&w=800&h=500&q=80",
+    likes: 1420,
+    likedByMe: false,
+    shares: 380,
+    comments: [
+      {
+        id: "c11",
+        authorName: "Tahmid Chowdhury",
+        authorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
+        content: "Huge relief for everyday office commuters in Motijheel and Mirpur!",
+        timestamp: "45 mins ago"
+      }
+    ]
+  },
+  {
+    id: "p8",
+    authorName: "World Tech Radar",
+    authorAvatar: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=150&h=150&q=80",
+    timestamp: "Yesterday at 3:00 PM",
+    content: "Open-source developer toolkits reach 50,000 active community contributors this month. A global milestone for decentralized software innovation. #OpenSource #DevCommunity",
+    likes: 430,
+    likedByMe: false,
+    shares: 90,
+    comments: []
+  },
+  {
     id: "p5",
-    authorName: "Tech Trends & Code",
+    authorName: "Dhaka Tech & Code",
     authorAvatar: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "30 mins ago",
-    content: "🚀 5 Quick Tips to optimize your React application rendering speed in 2026! 1. Split heavy components, 2. Keep state localized, 3. Use CSS-based layout shifts, 4. Debounce scroll listeners, 5. Cache API queries. What is your go-to optimization habit?",
+    content: "5 Quick Tips to optimize your React application rendering speed: 1. Split heavy components, 2. Keep state localized, 3. Avoid layout shifts, 4. Debounce scroll listeners, 5. Cache API queries. What is your go-to optimization habit?",
     likes: 96,
     likedByMe: true,
     shares: 18,
     comments: [
       {
         id: "c6",
-        authorName: "David Chen",
+        authorName: "Kamrul Hasan",
         authorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
         content: "Memoizing heavy calculations made a huge difference on our low-end device tests!",
         timestamp: "15 mins ago"
       },
       {
         id: "c7",
-        authorName: "Sarah Jenkins",
+        authorName: "Nusrat Jahan",
         authorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "Awesome tips! Saving this to read later.",
+        content: "Helpful tips! Saving this to read later.",
         timestamp: "5 mins ago"
       }
     ]
   },
   {
     id: "p6",
-    authorName: "Global Tech Discussions",
+    authorName: "Bangladesh Developers Hub",
     authorAvatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "6 hours ago",
-    content: "💬 Question of the day: Do you prefer working fully remote, hybrid, or on-site in 2026? Over 1,200 developers have chimed in with their thoughts on productivity vs. team bonding.",
+    content: "Question of the day: Do you prefer working remotely, hybrid, or on-site in Dhaka? Developers across the community have shared their thoughts on productivity vs. team collaboration.",
     likes: 380,
     likedByMe: false,
     shares: 64,
     comments: [
       {
         id: "c8",
-        authorName: "Michael Chang",
+        authorName: "Mahmudul Haque",
         authorAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "Hybrid 2 days in office gives the perfect balance for me.",
+        content: "Hybrid 2 days in office saves so much Dhaka traffic time!",
         timestamp: "5 hours ago"
       },
       {
         id: "c9",
-        authorName: "Sarah Jenkins",
+        authorName: "Nusrat Jahan",
         authorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "Fully remote lets me hike after morning standups!",
+        content: "Remote lets me focus without the daily commute.",
         timestamp: "4 hours ago"
       },
       {
         id: "c10",
-        authorName: "David Chen",
+        authorName: "Kamrul Hasan",
         authorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "Same here, asynchronous communication is king.",
+        content: "Same here, asynchronous communication works great.",
         timestamp: "2 hours ago"
       }
     ]
@@ -250,30 +292,30 @@ export const initialPosts: Post[] = [
 export const initialConversations: Conversation[] = [
   {
     id: "c_1",
-    friend: initialFriends[0], // Sarah Jenkins
+    friend: initialFriends[0], // Nusrat Jahan
     unread: true,
     messages: [
-      { id: "m1", senderId: "1", text: "Hey! Are we still on for lunch tomorrow?", timestamp: "12:30 PM" },
-      { id: "m2", senderId: "me", text: "Yes, definitely! Same place as last time?", timestamp: "12:32 PM" },
+      { id: "m1", senderId: "1", text: "Hey! Are we still meeting for lunch tomorrow?", timestamp: "12:30 PM" },
+      { id: "m2", senderId: "me", text: "Yes, definitely! Same place in Banani?", timestamp: "12:32 PM" },
       { id: "m3", senderId: "1", text: "Perfect! Let's do 1:00 PM. See you there!", timestamp: "12:35 PM" }
     ]
   },
   {
     id: "c_2",
-    friend: initialFriends[1], // David Chen
+    friend: initialFriends[1], // Kamrul Hasan
     unread: false,
     messages: [
-      { id: "m4", senderId: "me", text: "Hey David, the new game looks super crisp!", timestamp: "Yesterday" },
-      { id: "m5", senderId: "2", text: "Thanks Alex! Really appreciate you testing it out. Let me know if you run into any bugs!", timestamp: "Yesterday" }
+      { id: "m4", senderId: "me", text: "Hey Kamrul, the new project looks super crisp!", timestamp: "Yesterday" },
+      { id: "m5", senderId: "2", text: "Thanks Arif! Really appreciate you testing it out. Let me know if you run into any bugs!", timestamp: "Yesterday" }
     ]
   },
   {
     id: "c_3",
-    friend: initialFriends[3], // Michael Chang (pending friend, but lets pretend we chatted or let's make it a normal friend chat)
+    friend: initialFriends[3], // Mahmudul Haque
     unread: false,
     messages: [
-      { id: "m6", senderId: "4", text: "Hi Alex! Saw your profile in the tech developers group. Nice to connect!", timestamp: "2 days ago" },
-      { id: "m7", senderId: "me", text: "Hey Michael, nice to connect with you too! What are you working on currently?", timestamp: "2 days ago" }
+      { id: "m6", senderId: "4", text: "Hi Arif! Saw your profile in the Dhaka developers group. Nice to connect!", timestamp: "2 days ago" },
+      { id: "m7", senderId: "me", text: "Hey Mahmudul, nice to connect with you too! What are you working on currently?", timestamp: "2 days ago" }
     ]
   }
 ];
@@ -282,7 +324,8 @@ export const initialNotifications: Notification[] = [
   {
     id: "n1",
     type: "friend_request",
-    actorName: "Emily Rodriguez",
+    actorId: "3",
+    actorName: "Sadia Islam",
     actorAvatar: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "10 mins ago",
     read: false,
@@ -291,7 +334,8 @@ export const initialNotifications: Notification[] = [
   {
     id: "n2",
     type: "like",
-    actorName: "David Chen",
+    actorId: "2",
+    actorName: "Kamrul Hasan",
     actorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
     targetId: "p2",
     timestamp: "1 hour ago",
@@ -301,17 +345,19 @@ export const initialNotifications: Notification[] = [
   {
     id: "n3",
     type: "comment",
-    actorName: "Sarah Jenkins",
+    actorId: "1",
+    actorName: "Nusrat Jahan",
     actorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
     targetId: "p2",
     timestamp: "3 hours ago",
     read: true,
-    summaryText: "commented on your post: 'OMG! Congratulations David! The graphics...'"
+    summaryText: "commented on your post: 'Congratulations Kamrul! The design looks great...'"
   },
   {
     id: "n4",
     type: "friend_accept",
-    actorName: "Michael Chang",
+    actorId: "4",
+    actorName: "Mahmudul Haque",
     actorAvatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "Yesterday",
     read: true,
@@ -322,160 +368,160 @@ export const initialNotifications: Notification[] = [
 export const watchPosts: Post[] = [
   {
     id: "w1",
-    authorName: "Amazing Destinations",
+    authorName: "Beautiful Bangladesh",
     authorAvatar: "https://images.unsplash.com/photo-1527631746610-bca00a040d60?auto=format&fit=crop&w=150&h=150&q=80",
-    timestamp: "Sponsored",
-    content: "Take a deep breath and escape to the gorgeous waterfalls of Switzerland. Nature at its absolute finest! 🏔️🌊 Would you travel here?",
+    timestamp: "2 hours ago",
+    content: "Take a deep breath and explore the lush green hills and waterfalls of Bandarban and Sylhet.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-waterfall-in-forest-2213-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 1250,
     likedByMe: false,
     shares: 340,
-    title: "Exploring Switzerland's Secret Glacial Waterfalls (Full 4K Tour)",
+    title: "Exploring Lush Waterfalls and Green Hills of Bangladesh",
     duration: "5:18",
     views: "2.4M views",
     comments: [
       {
         id: "wc1",
-        authorName: "Sarah Jenkins",
+        authorName: "Nusrat Jahan",
         authorAvatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "Adding this to the absolute top of my bucket list! Absolutely stunning.",
+        content: "Adding this to the top of my travel list! Stunning view.",
         timestamp: "2 hours ago"
       }
     ]
   },
   {
     id: "w2",
-    authorName: "Chef's Kitchen",
+    authorName: "Dhaka Kitchen",
     authorAvatar: "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "3 hours ago",
-    content: "Learn how to make the perfect chocolate lava cake at home in just 5 simple steps! Trust us, it's easier than you think. 🍫🧁✨",
+    content: "Learn how to make the perfect chocolate lava cake at home in 5 simple steps!",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-pouring-melted-chocolate-on-a-croissant-34444-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 850,
     likedByMe: false,
     shares: 215,
-    title: "Perfect 5-Step Chocolate Lava Cake Masterclass at Home",
+    title: "5-Step Chocolate Lava Cake Recipe at Home",
     duration: "8:24",
     views: "1.1M views",
     comments: []
   },
   {
     id: "w3",
-    authorName: "Tech Insider",
+    authorName: "Tech Insider BD",
     authorAvatar: "https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "Yesterday",
-    content: "Check out this incredibly satisfying automated keyboard assembly line! The precision of modern robotics is truly mindblowing. 🤖⌨️",
+    content: "Check out this automated keyboard assembly line! The precision of modern hardware engineering is impressive.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-programmer-typing-on-a-keyboard-40546-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1587829741301-dc798b83add3?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 2310,
     likedByMe: true,
     shares: 490,
-    title: "Oddly Satisfying Automated Mechanical Keyboard Assembly Line",
+    title: "Mechanical Keyboard Setup & Coding Workflow",
     duration: "12:15",
     views: "4.5M views",
     comments: [
       {
         id: "wc2",
-        authorName: "David Chen",
+        authorName: "Kamrul Hasan",
         authorAvatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&h=150&q=80",
-        content: "As a programmer, I find this extremely satisfying to watch.",
+        content: "As a programmer, I find this very satisfying to watch.",
         timestamp: "Yesterday"
       }
     ]
   },
   {
     id: "w4",
-    authorName: "Beatwave Records",
+    authorName: "Beatwave Studio",
     authorAvatar: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "4 hours ago",
-    content: "Vibe with us through this chill sunset session featuring pure lo-fi beats, warm vinyl crackles, and expert ambient mixing. Perfect for studying or relaxing! 🎧🌅",
+    content: "Chill sunset session featuring lo-fi beats and ambient mixing. Great for studying or coding.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-slow-motion-of-a-dj-hand-mixing-music-33157-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 1950,
     likedByMe: false,
     shares: 310,
-    title: "Lo-Fi Beats & DJ Scratching: Live Sunset Session",
+    title: "Lo-Fi Beats: Live Sunset Studio Session",
     duration: "15:40",
     views: "820K views",
     comments: []
   },
   {
     id: "w5",
-    authorName: "Earth Drone Travel",
+    authorName: "Bay of Bengal Travel",
     authorAvatar: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "2 days ago",
-    content: "Stunning cinematic drone footage capturing the absolute raw power and beauty of massive turquoise ocean swells breaking onto isolated beaches. 🌊🚁",
+    content: "Aerial drone footage capturing ocean waves along Cox's Bazar and Saint Martin's Island.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-top-aerial-view-of-waves-crashing-on-sandy-beach-43105-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 4100,
     likedByMe: false,
     shares: 830,
-    title: "4K Aerial Coastline: Ocean Waves Crashing on Pink Sands",
+    title: "Aerial Coastline: Ocean Waves at Cox's Bazar",
     duration: "6:12",
     views: "3.1M views",
     comments: []
   },
   {
     id: "w6",
-    authorName: "Serenity Yoga",
+    authorName: "Daily Wellness",
     authorAvatar: "https://images.unsplash.com/photo-1518611012118-696072aa579a?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "3 days ago",
-    content: "Align your mind and body with this beginner-friendly sunset vinyasa flow. Breathe in the salty ocean air and release all daily tension and stress. 🧘‍♀️🌅",
+    content: "Beginner-friendly sunset stretching and breathing routine to unwind after a busy workday.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-woman-practicing-yoga-on-the-beach-at-sunset-1902-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 1120,
     likedByMe: false,
     shares: 195,
-    title: "15-Min Sunset Beach Yoga & Deep Breathing Flow",
+    title: "15-Min Sunset Stretching & Deep Breathing Flow",
     duration: "15:00",
     views: "510K views",
     comments: []
   },
   {
     id: "w7",
-    authorName: "Wok Star",
+    authorName: "Spice & Wok BD",
     authorAvatar: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "4 days ago",
-    content: "Learn the secret behind the perfect wok-toss! Super high-heat searing, fresh ginger, spring onions, and dry Szechuan peppercorns for that ultimate flavor. 🔥🥢",
+    content: "High-heat stir fry with fresh ginger, spring onions, and spices for a quick homemade dinner.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-frying-diced-chicken-with-vegetables-in-a-wok-34455-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 1640,
     likedByMe: false,
     shares: 350,
-    title: "Sizzling Szechuan Chilli Chicken Wok Masterclass",
+    title: "Sizzling Chilli Chicken Stir-Fry Recipe",
     duration: "9:45",
     views: "720K views",
     comments: []
   },
   {
     id: "w8",
-    authorName: "Artisanal Baker",
+    authorName: "Home Bakery BD",
     authorAvatar: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "5 days ago",
-    content: "No commercial yeast, no shortcuts. Just organic flour, active wild starter, water, salt, and hours of dedicated love. See the satisfying dough kneading process! 🍞🌾",
+    content: "Freshly baked artisan bread from scratch using flour, water, and salt.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-hands-of-a-chef-kneading-dough-on-a-floured-surface-34436-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 2890,
     likedByMe: false,
     shares: 570,
-    title: "Traditional Sourdough Bread from Scratch: Flour, Water, Salt",
+    title: "Traditional Artisan Bread from Scratch",
     duration: "11:20",
     views: "1.4M views",
     comments: []
   },
   {
     id: "w9",
-    authorName: "Resto Tech",
+    authorName: "Retro Hardware",
     authorAvatar: "https://images.unsplash.com/photo-1478760329108-5c3ed9d495a0?auto=format&fit=crop&w=150&h=150&q=80",
     timestamp: "1 week ago",
-    content: "Restoring an authentic 1983 coin-op CRT arcade cabinet. Fixing the power supplies, wiring up the joystick microswitches, and polishing the bright neon header lighting! 👾🕹️",
+    content: "Restoring a classic 1980s CRT arcade cabinet and fixing the power supply and microswitches.",
     videoUrl: "https://assets.mixkit.co/videos/preview/mixkit-neon-light-from-a-retro-arcade-game-machine-42417-large.mp4",
     videoThumbnail: "https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=800&h=500&q=80",
     likes: 3450,
     likedByMe: false,
     shares: 610,
-    title: "Retro Neon Arcade Machine restoration project",
+    title: "Classic Arcade Machine Restoration Project",
     duration: "18:05",
     views: "920K views",
     comments: []

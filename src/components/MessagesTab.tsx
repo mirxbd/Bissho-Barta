@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Conversation, Friend } from '../types';
-import { ArrowLeft, Send, Phone, Video, Info, Circle } from 'lucide-react';
+import { Conversation } from '../types';
+import { ArrowLeft, Send, Circle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface MessagesTabProps {
@@ -23,7 +23,6 @@ export default function MessagesTab({
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [callingType, setCallingType] = useState<'voice' | 'video' | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimerRef = useRef<number | null>(null);
 
@@ -32,16 +31,28 @@ export default function MessagesTab({
     messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' });
   }, []);
 
-  // Derived active conversation from ID
+  // Derived active conversation from ID or externally selected chattingFriendId
   const activeConv = useMemo(() => {
-    if (!activeConvId) return null;
-    return conversations.find(c => c.id === activeConvId) || null;
-  }, [conversations, activeConvId]);
+    if (activeConvId) {
+      const byId = conversations.find(c => c.id === activeConvId);
+      if (byId) return byId;
+    }
+    if (chattingFriendId) {
+      return (
+        conversations.find(
+          c => c.friend.id === chattingFriendId || c.id === chattingFriendId
+        ) || null
+      );
+    }
+    return null;
+  }, [conversations, activeConvId, chattingFriendId]);
 
-  // If a friend is selected externally (e.g. from Friends list), set it active
+  // If a friend is selected externally (e.g. from Profile, Page, or Friends list), set it active
   useEffect(() => {
     if (chattingFriendId) {
-      const conv = conversations.find(c => c.friend.id === chattingFriendId);
+      const conv = conversations.find(
+        c => c.friend.id === chattingFriendId || c.id === chattingFriendId
+      );
       if (conv) {
         setActiveConvId(conv.id);
       }
@@ -104,10 +115,9 @@ export default function MessagesTab({
             className="flex-1 flex flex-col"
             id="conversations-list-pane"
           >
-            {/* Bissho Barta Chat Header Label */}
+            {/* Chats Header */}
             <div className="p-3 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
               <span className="text-xs font-bold text-gray-800 uppercase tracking-wide">Chats</span>
-              <span className="text-[10px] text-[#076653] bg-[#EBF7F2] border border-[#076653]/20 px-2 py-0.5 rounded-full font-bold">Bissho Barta Chat</span>
             </div>
 
             {filteredConvs.length === 0 ? (
@@ -227,26 +237,6 @@ export default function MessagesTab({
                   </div>
                 </div>
               </div>
-
-              {/* Mock Actions */}
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setCallingType('video')} 
-                  className="p-2 hover:bg-[#EBF7F2] text-[#076653] rounded-full cursor-pointer transition-colors"
-                  id="chat-video-btn"
-                  title="Simulate Video Call"
-                >
-                  <Video className="w-4 h-4" />
-                </button>
-                <button 
-                  onClick={() => setCallingType('voice')} 
-                  className="p-2 hover:bg-[#EBF7F2] text-[#076653] rounded-full cursor-pointer transition-colors"
-                  id="chat-voice-btn"
-                  title="Simulate Voice Call"
-                >
-                  <Phone className="w-4 h-4" />
-                </button>
-              </div>
             </div>
 
             {/* Messages box */}
@@ -318,47 +308,6 @@ export default function MessagesTab({
                 <Send className="w-4 h-4" />
               </button>
             </div>
-
-            {/* FULL-SCREEN INTERACTIVE MOCK CALL OVERLAY */}
-            <AnimatePresence>
-              {callingType && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  className="absolute inset-0 bg-gray-900 text-white flex flex-col items-center justify-center z-50 p-6 text-center select-none"
-                  id="calling-simulation-overlay"
-                >
-                  <div className="flex-1 flex flex-col items-center justify-center gap-6">
-                    <div className="relative">
-                      <div className="absolute inset-0 rounded-full bg-[#076653]/40 animate-ping duration-1000"></div>
-                      <img
-                        src={activeConv.friend.avatar}
-                        alt=""
-                        className="w-24 h-24 rounded-full object-cover border-4 border-[#E3EF26] relative z-10"
-                        referrerPolicy="no-referrer"
-                      />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold tracking-tight">{activeConv.friend.name}</h2>
-                      <p className="text-xs text-[#E3EF26] mt-2 font-medium">
-                        {callingType === 'video' ? '📞 Connecting video chat...' : '📞 Ringing via Bissho Barta Chat...'}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="pb-12 shrink-0 flex flex-col items-center gap-2">
-                    <button
-                      onClick={() => setCallingType(null)}
-                      className="w-14 h-14 bg-red-600 rounded-full flex items-center justify-center hover:bg-red-700 transition-colors cursor-pointer text-white shadow-lg active:scale-95 duration-100"
-                      title="End Call"
-                    >
-                      <Phone className="w-6 h-6 rotate-135" />
-                    </button>
-                    <span className="text-[11px] text-gray-400 block font-medium">End Call</span>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </motion.div>
         )}
       </AnimatePresence>
